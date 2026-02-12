@@ -16,8 +16,8 @@ Invite-only Discord-like chat for friends. Built with Next.js 15, Supabase, and 
 ### 2. Environment Variables
 
 1. In Supabase Dashboard → **Project Settings** (gear) → **API**:
-   - Copy **Project URL** → `NEXT_PUBLIC_SUPABASE_URL`
-   - Copy **anon public** key → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - Copy **Project URL** → https://dlpzpxhqjsqwgigfsrcq.supabase.co  `NEXT_PUBLIC_SUPABASE_URL`
+   - Copy **anon public** key → sb_publishable_zN6u5vQus9uVkxZPnMAp8w_gn7vqtRk  `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - Copy **service_role** key → `SUPABASE_SERVICE_ROLE_KEY` (keep this secret; used only server-side)
 
 2. Create `.env.local` in the project root:
@@ -48,6 +48,41 @@ After your first user signs up:
 1. Supabase Dashboard → **Authentication** → **Users** → copy your user’s UUID.
 2. Open `supabase/seed.sql`, replace `YOUR_USER_ID_HERE` with that UUID.
 3. Run `supabase/seed.sql` in the SQL Editor.
+
+---
+
+## Testing the Invitation System
+
+### Prerequisites
+
+1. **Schema & seed run:** `schema.sql` and `seed.sql` executed in Supabase SQL Editor (seed creates invite code `cacophany-welcome`).
+
+2. **First user exists:** Either created in Supabase Dashboard → Auth → Users, or signed up before you disabled public signups.
+
+3. **App running:** `npm run dev` locally, or deployed on Vercel.
+
+4. **Supabase Auth URLs:** If testing on Vercel, add your deploy URL to Supabase → Auth → URL Configuration → Redirect URLs.
+
+### Test Steps
+
+| Step | Action | Expected result |
+|------|--------|-----------------|
+| 1 | Visit `/signup` (no invite) | Form shows; invite code field empty. |
+| 2 | Submit without invite code | Error: "Invite code is required". |
+| 3 | Visit `/signup?invite=cacophany-welcome` | Invite code field pre-filled with `cacophany-welcome`. |
+| 4 | Use a fake code (e.g. `wrong-code`) | Error: "Invalid or expired invite code". |
+| 5 | Enter valid code `cacophany-welcome`, valid email/password | Redirects to home; new user created; invite marked as used. |
+| 6 | Use same code again (new email) | Should work until `uses` reaches `max_uses` (10). |
+| 7 | Check Supabase → Auth → Users | New user appears. |
+| 8 | Check Supabase → Table Editor → `invites` | `uses` incremented, `used_by_user_id` set. |
+
+### Quick local test
+
+```bash
+npm run dev
+```
+
+Open [http://localhost:3000/signup?invite=cacophany-welcome](http://localhost:3000/signup?invite=cacophany-welcome) and sign up with a test email.
 
 ---
 
@@ -105,10 +140,23 @@ supabase/
 
 ---
 
+## Realtime (Live Messages)
+
+To enable live message updates when others send messages:
+
+1. Supabase Dashboard → **Database** → **Replication**
+2. Enable replication for the `messages` table
+
 ## Next Steps
 
-- [ ] Implement auth (login/signup with Supabase Auth)
-- [ ] Invite-only signup flow (validate invite code before creating user)
-- [ ] Build chat UI (sidebar, channels, messages)
-- [ ] Supabase Realtime for messages and typing indicators
+- [x] Implement auth (login/signup with Supabase Auth)
+- [x] Invite-only signup flow (validate invite code before creating user)
+- [x] Build chat UI (sidebar, channels, messages)
+- [x] Supabase Realtime for messages and typing indicators
 - [ ] Storage for avatars and attachments
+
+
+to share:
+https://cacophany.vercel.app/signup?invite=cacophany-welcome
+
+https://cacophony-ten.vercel.app/signup?invite=cacophany-welcome

@@ -32,8 +32,12 @@ export async function middleware(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
 
+  if (user && pathname === "/") {
+    return NextResponse.redirect(new URL("/chat", request.url));
+  }
+
   if (user && AUTH_ROUTES.includes(pathname)) {
-    return NextResponse.redirect(new URL("/", request.url));
+    return NextResponse.redirect(new URL("/chat", request.url));
   }
 
   if (!user && !PUBLIC_ROUTES.includes(pathname)) {

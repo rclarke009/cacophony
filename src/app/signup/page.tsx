@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { Suspense, useActionState, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,8 +16,13 @@ import {
 } from "@/components/ui/card";
 import { signUp } from "@/app/actions/auth";
 
-export default function SignupPage() {
+function SignupForm() {
   const [state, formAction] = useActionState(signUp, null);
+  const searchParams = useSearchParams();
+  const inviteFromUrl = useMemo(
+    () => searchParams.get("invite")?.trim() ?? "",
+    [searchParams]
+  );
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-950 p-8">
@@ -24,16 +30,30 @@ export default function SignupPage() {
         <CardHeader>
           <CardTitle className="text-2xl">Sign up</CardTitle>
           <CardDescription>
-            Create an account to join Cacophany
+            Create an account to join Cacophany. An invite code is required.
           </CardDescription>
         </CardHeader>
         <form action={formAction}>
           <CardContent className="space-y-4">
             {state?.error && (
-              <p className="text-sm text-red-500" role="alert">
+              <div
+                className="rounded-md border border-red-500/50 bg-red-500/10 px-4 py-3 text-sm text-red-400"
+                role="alert"
+              >
                 {state.error}
-              </p>
+              </div>
             )}
+            <div className="space-y-2">
+              <Label htmlFor="invite_code">Invite code</Label>
+              <Input
+                id="invite_code"
+                name="invite_code"
+                type="text"
+                placeholder="e.g. cacophany-welcome"
+                autoComplete="off"
+                defaultValue={inviteFromUrl}
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -84,5 +104,23 @@ export default function SignupPage() {
         </form>
       </Card>
     </div>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-950 p-8">
+          <Card className="w-full max-w-md">
+            <CardContent className="py-8">
+              <p className="text-center text-muted-foreground">Loading...</p>
+            </CardContent>
+          </Card>
+        </div>
+      }
+    >
+      <SignupForm />
+    </Suspense>
   );
 }
