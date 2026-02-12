@@ -1,36 +1,114 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Cacophany
 
-## Getting Started
+Invite-only Discord-like chat for friends. Built with Next.js 15, Supabase, and shadcn/ui.
 
-First, run the development server:
+---
+
+## Setup
+
+### 1. Supabase Project
+
+1. Go to [supabase.com](https://supabase.com) and create an account (or sign in).
+2. Click **New Project**.
+3. Choose organization, name (e.g. `cacophany`), DB password, and region. Create.
+4. Wait for the project to finish provisioning.
+
+### 2. Environment Variables
+
+1. In Supabase Dashboard → **Project Settings** (gear) → **API**:
+   - Copy **Project URL** → `NEXT_PUBLIC_SUPABASE_URL`
+   - Copy **anon public** key → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - Copy **service_role** key → `SUPABASE_SERVICE_ROLE_KEY` (keep this secret; used only server-side)
+
+2. Create `.env.local` in the project root:
+
+```bash
+cp .env.local.example .env.local
+```
+
+3. Edit `.env.local` and paste your values:
+
+```
+NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+SUPABASE_SERVICE_ROLE_KEY=eyJ...
+```
+
+### 3. Database Schema
+
+1. In Supabase Dashboard → **SQL Editor** → **New query**.
+2. Open `supabase/schema.sql` in this repo and copy its contents.
+3. Paste into the SQL Editor and click **Run**.
+4. Confirm all statements completed without errors.
+
+### 4. (Optional) Seed Default Server
+
+After your first user signs up:
+
+1. Supabase Dashboard → **Authentication** → **Users** → copy your user’s UUID.
+2. Open `supabase/seed.sql`, replace `YOUR_USER_ID_HERE` with that UUID.
+3. Run `supabase/seed.sql` in the SQL Editor.
+
+---
+
+## Tricky Parts
+
+| Step | Gotcha | Fix |
+|------|--------|-----|
+| **Env vars** | `.env.local` is gitignored — copy from `.env.local.example` and fill in. | Create `.env.local` before `npm run dev`. |
+| **Supabase keys** | Anon key is public; service role key is secret. | Never put `SUPABASE_SERVICE_ROLE_KEY` in client code. |
+| **Schema** | RLS policies block access if user isn't a member. | Run `schema.sql` first. Add yourself to a server via `seed.sql` after signup. |
+| **Build** | `tw-animate-css` / `shadcn/tailwind.css` can cause resolve errors. | Removed for now; animations can be added later. |
+
+---
+
+## Run
+
+### Install Dependencies
+
+```bash
+npm install
+```
+
+### Development
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Build & Production
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build
+npm start
+```
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+## Project Structure
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+src/
+├── app/              # Next.js App Router pages
+├── components/        # React components
+│   └── ui/           # shadcn/ui components
+├── lib/
+│   ├── supabase/     # Supabase client (browser + server)
+│   └── utils.ts      # Utilities (cn, etc.)
+├── providers/        # React Query, etc.
+supabase/
+├── schema.sql        # Database schema + RLS
+└── seed.sql          # Optional seed for default server
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+---
 
-## Deploy on Vercel
+## Next Steps
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [ ] Implement auth (login/signup with Supabase Auth)
+- [ ] Invite-only signup flow (validate invite code before creating user)
+- [ ] Build chat UI (sidebar, channels, messages)
+- [ ] Supabase Realtime for messages and typing indicators
+- [ ] Storage for avatars and attachments
