@@ -73,7 +73,12 @@ export function MessageList({
           queryClient.invalidateQueries({ queryKey: ["messages", channelId] });
         }
       )
-      .subscribe();
+      .subscribe((status, err) => {
+        if (status === "SUBSCRIBED")
+          console.log("MYDEBUG →", "Realtime subscribed");
+        if (status === "CHANNEL_ERROR")
+          console.log("MYDEBUG →", "Realtime error", err);
+      });
 
     return () => {
       supabase.removeChannel(channel);

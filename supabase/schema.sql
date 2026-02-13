@@ -143,25 +143,40 @@ create policy "Server admins can create channels"
     )
   );
 
--- RLS: Server members — members can see other members
+-- Helper: check membership without triggering RLS (avoids infinite recursion)
+create or replace function public.is_server_member(p_server_id uuid, p_user_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.server_members
+    where server_id = p_server_id and user_id = p_user_id
+  );
+$$;
+
+create or replace function public.is_server_admin(p_server_id uuid, p_user_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.server_members
+    where server_id = p_server_id and user_id = p_user_id
+      and role in ('owner', 'admin')
+  );
+$$;
+
+-- RLS: Server members — members can see other members (uses helper to avoid recursion)
 create policy "Members can view server members"
   on public.server_members for select
-  using (
-    exists (
-      select 1 from public.server_members sm
-      where sm.server_id = server_members.server_id and sm.user_id = auth.uid()
-    )
-  );
+  using (public.is_server_member(server_id, auth.uid()));
 
 create policy "Server owners can add members"
   on public.server_members for insert
-  with check (
-    exists (
-      select 1 from public.server_members
-      where server_id = server_members.server_id and user_id = auth.uid()
-        and role in ('owner', 'admin')
-    )
-  );
+  with check (public.is_server_admin(server_id, auth.uid()));
 
 -- RLS: Messages — members can read/write
 create policy "Channel members can view messages"

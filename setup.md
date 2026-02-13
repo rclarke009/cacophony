@@ -34,10 +34,18 @@ In Supabase Dashboard → **Project Settings** (gear) → **API**:
 
 ### 5. (Optional) Realtime for Live Messages
 
-1. Supabase Dashboard → **Database** → **Replication**
-2. Enable replication for the `messages` table
+To enable live message updates when others send messages (or when you send from another tab):
 
-Ran  ALTER PUBLICATION supabase_realtime ADD TABLE messages; in sql editor
+**Option A — Dashboard:** Supabase Dashboard → **Database** → **Publications** (not Replication). Under `supabase_realtime`, toggle on the `messages` table.
+
+**Option B — SQL:** In the SQL Editor, run: `ALTER PUBLICATION supabase_realtime ADD TABLE messages;`
+
+Note: The "Replication" page (BigQuery, Iceberg) is for data warehouses, not for live chat. Use **Publications** instead.
+
+### 6. If you see "infinite recursion detected in policy for relation 'server_members'"
+
+1. Run `supabase/migrations/001_fix_server_members_rls_recursion.sql` in the SQL Editor
+2. This fixes the RLS policies that were causing the recursion
 
 ---
 

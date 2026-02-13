@@ -2,6 +2,7 @@
 
 import { useRef } from "react";
 import { useFormStatus } from "react-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { sendMessage } from "@/app/actions/messages";
@@ -12,10 +13,14 @@ interface MessageInputProps {
 
 export function MessageInput({ channelId }: MessageInputProps) {
   const formRef = useRef<HTMLFormElement>(null);
+  const queryClient = useQueryClient();
 
   async function handleSubmit(formData: FormData) {
     formData.set("channel_id", channelId);
-    await sendMessage(formData);
+    const result = await sendMessage(formData);
+    if (!result?.error) {
+      queryClient.invalidateQueries({ queryKey: ["messages", channelId] });
+    }
     formRef.current?.reset();
   }
 
