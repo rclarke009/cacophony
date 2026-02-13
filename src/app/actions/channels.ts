@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 export async function createChannel(
@@ -45,5 +46,6 @@ export async function createChannel(
     return { error: error.message };
   }
 
+  revalidatePath(`/chat/${serverId}`);
   redirect(`/chat/${serverId}/${channel.id}`);
 }
