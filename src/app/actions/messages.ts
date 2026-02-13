@@ -21,99 +21,112 @@ function sanitizeFilename(name: string): string {
 }
 
 export async function sendMessage(formData: FormData) {
-  const channelId = formData.get("channel_id") as string;
-  const content = (formData.get("content") as string)?.trim() ?? "";
-  const files = formData.getAll("files") as File[];
+  try {
+    const channelId = formData.get("channel_id") as string;
+    const content = (formData.get("content") as string)?.trim() ?? "";
+    const files = formData.getAll("files") as File[];
 
-  if (!channelId) {
-    return { error: "Channel is required" };
-  }
-  if (!isValidUUID(channelId)) {
-    return { error: "Invalid channel" };
-  }
+    if (!channelId) {
+      return { error: "Channel is required" };
+    }
+    if (!isValidUUID(channelId)) {
+      return { error: "Invalid channel" };
+    }
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  if (!user) {
-    return { error: "Not authenticated" };
-  }
+    if (!user) {
+      return { error: "Not authenticated" };
+    }
 
-  const hasContent = content.length > 0;
-  const hasFilesCheck = files.length > 0 && files.every((f) => f instanceof File);
+    const hasContent = content.length > 0;
+    const hasFilesCheck =
+      files.length > 0 && files.every((f) => f instanceof File);
 
-  if (!hasContent && !hasFilesCheck) {
-    return { error: "Message cannot be empty" };
-  }
-  if (content.length > MAX_MESSAGE_CONTENT_LENGTH) {
-    return { error: `Message must be ${MAX_MESSAGE_CONTENT_LENGTH} characters or less` };
-  }
-
-  // Validate files if present
-  if (hasFilesCheck) {
-    if (files.length > MAX_IMAGES_PER_MESSAGE) {
+    if (!hasContent && !hasFilesCheck) {
+      return { error: "Message cannot be empty" };
+    }
+    if (content.length > MAX_MESSAGE_CONTENT_LENGTH) {
       return {
-        error: `Maximum ${MAX_IMAGES_PER_MESSAGE} images per message`,
+        error: `Message must be ${MAX_MESSAGE_CONTENT_LENGTH} characters or less`,
       };
     }
-    for (const file of files) {
-      if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+
+    // Validate files if present
+    if (hasFilesCheck) {
+      if (files.length > MAX_IMAGES_PER_MESSAGE) {
         return {
-          error: `Invalid file type. Allowed: JPEG, PNG, GIF, WebP`,
+          error: `Maximum ${MAX_IMAGES_PER_MESSAGE} images per message`,
         };
       }
-      if (file.size > MAX_FILE_SIZE) {
-        return { error: "Each image must be under 5 MB" };
+      for (const file of files) {
+        if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+          return {
+            error: `Invalid file type. Allowed: JPEG, PNG, GIF, WebP`,
+          };
+        }
+        if (file.size > MAX_FILE_SIZE) {
+          return { error: "Each image must be under 5 MB" };
+        }
       }
     }
-  }
 
-  const { data: message, error: insertError } = await supabase
-    .from("messages")
-    .insert({
-      channel_id: channelId,
-      user_id: user.id,
-      content: content || "",
-    })
-    .select("id")
-    .single();
+    const { data: message, error: insertError } = await supabase
+      .from("messages")
+      .insert({
+        channel_id: channelId,
+        user_id: user.id,
+        content: content || "",
+      })
+      .select("id")
+      .single();
 
-  if (insertError) {
-    console.log("MYDEBUG →", insertError);
-    return { error: insertError.message };
-  }
+    if (insertError) {
+      console.log("MYDEBUG →", insertError);
+      return { error: insertError.message };
+    }
 
-  const messageId = message.id;
+    const messageId = message.id;
 
-  if (hasFilesCheck) {
-    for (const file of files) {
-      const filename = sanitizeFilename(file.name);
-      const path = `${channelId}/${messageId}/${filename}`;
+    if (hasFilesCheck) {
+      for (const file of files) {
+        const filename = sanitizeFilename(file.name);
+        const path = `${channelId}/${messageId}/${filename}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from("attachments")
-        .upload(path, file, { contentType: file.type });
+        const { error: uploadError } = await supabase.storage
+          .from("attachments")
+          .upload(path, file, { contentType: file.type });
 
-      if (uploadError) {
-        console.log("MYDEBUG →", uploadError);
-        return { error: uploadError.message };
-      }
+        if (uploadError) {
+          console.log("MYDEBUG →", uploadError);
+          return { error: uploadError.message };
+        }
 
-      const { error: attachError } = await supabase.from("attachments").insert({
-        message_id: messageId,
-        file_path: path,
-        file_type: "image",
-      });
+        const { error: attachError } = await supabase
+          .from("attachments")
+          .insert({
+            message_id: messageId,
+            file_path: path,
+            file_type: "image",
+          });
 
-      if (attachError) {
-        console.log("MYDEBUG →", attachError);
-        return { error: attachError.message };
+        if (attachError) {
+          console.log("MYDEBUG →", attachError);
+          return { error: attachError.message };
+        }
       }
     }
-  }
 
-  revalidatePath(`/chat`);
-  return { success: true };
+    revalidatePath(`/chat`);
+    return { success: true };
+  } catch (err) {
+    console.log("MYDEBUG →", err);
+    return {
+      error:
+        err instanceof Error ? err.message : "Failed to send message. Please try again.",
+    };
+  }
 }

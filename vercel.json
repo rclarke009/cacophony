@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "src/app/**/*.ts": {
+      "maxRequestBodyLength": 10485760
+    }
+  }
+}
