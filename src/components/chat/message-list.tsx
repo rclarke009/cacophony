@@ -149,7 +149,13 @@ export function MessageList({
                       {msg.username ?? "Anonymous"}
                     </span>
                     <span className="text-xs text-muted-foreground">
-                      {new Date(msg.created_at).toLocaleString()}
+                      {new Date(msg.created_at).toLocaleString("en-US", {
+                        month: "numeric",
+                        day: "numeric",
+                        year: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit",
+                      })}
                     </span>
                   </div>
                   {msg.content ? (
