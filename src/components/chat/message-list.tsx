@@ -82,6 +82,11 @@ export function MessageList({
             attachments.length > 0
               ? await getSignedUrls(supabase, attachments)
               : [];
+          console.log("MYDEBUG →", {
+            msgId: m.id,
+            attachments,
+            attachmentsWithUrls,
+          });
           return {
             ...m,
             username: profileMap.get(m.user_id) ?? null,
@@ -148,7 +153,10 @@ export function MessageList({
                     <span className="font-medium text-foreground">
                       {msg.username ?? "Anonymous"}
                     </span>
-                    <span className="text-xs text-muted-foreground">
+                    <span
+                      className="text-xs text-muted-foreground"
+                      suppressHydrationWarning
+                    >
                       {new Date(msg.created_at).toLocaleString("en-US", {
                         month: "numeric",
                         day: "numeric",
