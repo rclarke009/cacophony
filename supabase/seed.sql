@@ -28,9 +28,13 @@ begin
   insert into public.channels (server_id, name, type)
   values (v_server_id, 'general', 'text');
 
-  -- Create invite code for inviting friends (10 uses)
+  -- Create invite code for platform signup (10 uses)
   insert into public.invites (code, created_by_user_id, max_uses)
   values ('cacophany-welcome', v_user_id, 10);
 
-  raise notice 'Created Home server (id: %) with general channel and invite code cacophany-welcome', v_server_id;
+  -- Create invite code for Home server (10 uses) — run migration 002 first
+  insert into public.invites (code, created_by_user_id, max_uses, server_id)
+  values ('home-invite', v_user_id, 10, v_server_id);
+
+  raise notice 'Created Home server (id: %) with general channel. Invites: cacophany-welcome (signup), home-invite (server join)', v_server_id;
 end $$;

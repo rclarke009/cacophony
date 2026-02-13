@@ -26,13 +26,18 @@ In Supabase Dashboard → **Project Settings** (gear) → **API**:
 3. Paste into the SQL Editor and click **Run**
 4. Confirm all statements completed without errors.
 
-### 4. Seed Default Server
+### 4. Run Migration (server_id on invites)
+
+1. Run `supabase/migrations/002_add_server_id_to_invites.sql` in the SQL Editor
+2. This adds `server_id` to invites so invite codes can target specific servers
+
+### 5. Seed Default Server
 
 1. Supabase Dashboard → **Authentication** → **Users** → copy your user's UUID
 2. Open `supabase/seed.sql`, replace `YOUR_USER_ID_HERE` with that UUID
 3. Run `supabase/seed.sql` in the SQL Editor
 
-### 5. (Optional) Realtime for Live Messages
+### 6. (Optional) Realtime for Live Messages
 
 To enable live message updates when others send messages (or when you send from another tab):
 
@@ -42,10 +47,18 @@ To enable live message updates when others send messages (or when you send from 
 
 Note: The "Replication" page (BigQuery, Iceberg) is for data warehouses, not for live chat. Use **Publications** instead.
 
-### 6. If you see "infinite recursion detected in policy for relation 'server_members'"
+### 7. If you see "infinite recursion detected in policy for relation 'server_members'"
 
 1. Run `supabase/migrations/001_fix_server_members_rls_recursion.sql` in the SQL Editor
 2. This fixes the RLS policies that were causing the recursion
+
+---
+
+## Invite Flow
+
+**System invite** (platform signup): Share `https://yourapp.com/signup?invite=cacophany-welcome`. New users sign up and enter the app. They land in a **safe area** that explains they need invitations to join conversations (servers).
+
+**Server invite**: Share `https://yourapp.com/join/CODE` where CODE is an invite created for a specific server. Example: `https://yourapp.com/join/home-invite` (from seed). Logged-in users are added to that server and redirected to its chat. New users are redirected to signup with the code pre-filled; after signup they are added to the server automatically.
 
 ---
 
@@ -90,6 +103,7 @@ In Vercel → Project → **Settings** → **Environment Variables**, add:
 
 - [ ] Supabase project created
 - [ ] Schema run in Supabase SQL Editor
+- [ ] Migration 002 run (server_id on invites)
 - [ ] Seed run with your user ID
 - [ ] Vercel env vars set (all 3)
 - [ ] Redirect URLs added in Supabase

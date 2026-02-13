@@ -40,7 +40,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/chat", request.url));
   }
 
-  if (!user && !PUBLIC_ROUTES.includes(pathname)) {
+  if (!user && !PUBLIC_ROUTES.includes(pathname) && !pathname.startsWith("/join")) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 

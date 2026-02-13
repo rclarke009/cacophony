@@ -45,7 +45,7 @@ export async function signUp(
   const admin = createAdminClient();
   const { data: invite, error: inviteError } = await admin
     .from("invites")
-    .select("id, code, max_uses, uses, expires_at")
+    .select("id, code, max_uses, uses, expires_at, server_id")
     .eq("code", inviteCode)
     .single();
 
@@ -78,6 +78,14 @@ export async function signUp(
       used_at: new Date().toISOString(),
       uses: invite.uses + 1,
     }).eq("id", invite.id);
+
+    if (invite.server_id) {
+      await admin.from("server_members").insert({
+        server_id: invite.server_id,
+        user_id: authData.user.id,
+        role: "member",
+      });
+    }
   }
 
   redirect("/");

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { WelcomeEmptyState } from "@/components/chat/welcome-empty-state";
 
 export default async function ChatPage() {
   const supabase = await createClient();
@@ -37,9 +38,5 @@ export default async function ChatPage() {
     redirect(`/chat/${firstServer.id}/${firstChannel.id}`);
   }
 
-  return (
-    <div className="flex flex-1 flex-col items-center justify-center p-8">
-      <p className="text-zinc-400">No servers yet. You need an invite to join one.</p>
-    </div>
-  );
+  return <WelcomeEmptyState />;
 }
