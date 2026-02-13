@@ -5,7 +5,6 @@ import { useFormStatus } from "react-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { sendMessage } from "@/app/actions/messages";
 import {
   MAX_FILE_SIZE,
   MAX_IMAGES_PER_MESSAGE,
@@ -25,18 +24,45 @@ export function MessageInput({ channelId }: MessageInputProps) {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleSubmit(formData: FormData) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
     setError(null);
+    const form = formRef.current;
+    if (!form) return;
+
+    const formData = new FormData(form);
     formData.set("channel_id", channelId);
     selectedFiles.forEach((file) => formData.append("files", file));
-    const result = await sendMessage(formData);
-    if (!result?.error) {
+
+    try {
+      const res = await fetch("/api/chat/send-message", {
+        method: "POST",
+        body: formData,
+      });
+      const text = await res.text();
+      let result: { error?: string; success?: boolean } = {};
+      try {
+        result = text ? JSON.parse(text) : {};
+      } catch {
+        console.log("MYDEBUG →", "Non-JSON response", res.status, text?.slice(0, 200));
+      }
+
+      if (!res.ok) {
+        setError(result?.error ?? "Failed to send message");
+        console.log("MYDEBUG →", result?.error);
+        return;
+      }
+      if (result?.error) {
+        setError(result.error);
+        console.log("MYDEBUG →", result.error);
+        return;
+      }
       queryClient.invalidateQueries({ queryKey: ["messages", channelId] });
       setSelectedFiles([]);
-      formRef.current?.reset();
-    } else {
-      setError(result.error);
-      console.log("MYDEBUG →", result.error);
+      form.reset();
+    } catch (err) {
+      setError("Failed to send message. Please try again.");
+      console.log("MYDEBUG →", err);
     }
   }
 
@@ -80,7 +106,7 @@ export function MessageInput({ channelId }: MessageInputProps) {
   return (
     <form
       ref={formRef}
-      action={handleSubmit}
+      onSubmit={handleSubmit}
       className="flex flex-col gap-2 border-t border-border bg-muted/50 p-4"
     >
       {error && (
