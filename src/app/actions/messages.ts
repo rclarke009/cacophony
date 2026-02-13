@@ -23,35 +23,6 @@ export async function sendMessage(formData: FormData) {
   const content = (formData.get("content") as string)?.trim() ?? "";
   const files = formData.getAll("files") as File[];
 
-  // #region agent log
-  const hasFiles = files.length > 0 && files.every((f) => f instanceof File);
-  const fileDetails = files.map((f, i) => ({
-    i,
-    isFile: f instanceof File,
-    type: typeof f,
-    size: f instanceof File ? f.size : "n/a",
-    mime: f instanceof File ? f.type : "n/a",
-  }));
-  const logPayload = {
-    location: "messages.ts:sendMessage",
-    message: "sendMessage entry",
-    data: {
-      channelId,
-      contentLen: content.length,
-      filesCount: files.length,
-      hasFiles,
-      fileDetails,
-    },
-    timestamp: Date.now(),
-    hypothesisId: "H2_H4",
-  };
-  await fetch("http://127.0.0.1:7246/ingest/a980a933-dca8-4b08-ab47-6af3254c5013", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(logPayload),
-  }).catch(() => {});
-  // #endregion
-
   if (!channelId) {
     return { error: "Channel is required" };
   }
@@ -102,19 +73,6 @@ export async function sendMessage(formData: FormData) {
     .single();
 
   if (insertError) {
-    // #region agent log
-    await fetch("http://127.0.0.1:7246/ingest/a980a933-dca8-4b08-ab47-6af3254c5013", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        location: "messages.ts:insertError",
-        message: "Message insert failed",
-        data: { error: insertError.message, code: insertError.code },
-        timestamp: Date.now(),
-        hypothesisId: "H5",
-      }),
-    }).catch(() => {});
-    // #endregion
     console.log("MYDEBUG →", insertError);
     return { error: insertError.message };
   }
@@ -131,19 +89,6 @@ export async function sendMessage(formData: FormData) {
         .upload(path, file, { contentType: file.type });
 
       if (uploadError) {
-        // #region agent log
-        await fetch("http://127.0.0.1:7246/ingest/a980a933-dca8-4b08-ab47-6af3254c5013", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            location: "messages.ts:uploadError",
-            message: "Storage upload failed",
-            data: { error: uploadError.message, path },
-            timestamp: Date.now(),
-            hypothesisId: "H3",
-          }),
-        }).catch(() => {});
-        // #endregion
         console.log("MYDEBUG →", uploadError);
         return { error: uploadError.message };
       }

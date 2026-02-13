@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ThemeSelector } from "@/components/theme-selector";
 import { SettingsAccountSection } from "@/components/settings/account-section";
 import { SettingsAppearanceSection } from "@/components/settings/appearance-section";
+import { SettingsNotificationsSection } from "@/components/settings/notifications-section";
 import { SettingsSecuritySection } from "@/components/settings/security-section";
 import { ArrowLeft } from "lucide-react";
 
@@ -20,12 +21,18 @@ export default async function SettingsPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("username, theme_preference")
+    .select("username, theme_preference, notification_preference")
     .eq("id", user.id)
     .single();
 
   const themePreference =
     profile?.theme_preference === "retro" ? "retro" : "dark";
+  const notificationPreference =
+    profile?.notification_preference === "popup" ||
+    profile?.notification_preference === "badge_only" ||
+    profile?.notification_preference === "none"
+      ? profile.notification_preference
+      : "popup";
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -47,6 +54,9 @@ export default async function SettingsPage() {
             username={profile?.username ?? ""}
           />
           <SettingsAppearanceSection initialTheme={themePreference} />
+          <SettingsNotificationsSection
+            initialPreference={notificationPreference}
+          />
           <SettingsSecuritySection />
         </div>
       </main>

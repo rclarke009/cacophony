@@ -50,6 +50,65 @@ export async function updateProfile(
   return { success: "Profile updated" };
 }
 
+export type NotificationPreference = "popup" | "badge_only" | "none";
+
+export async function updateNotificationPreference(
+  _prevState: { error?: string; success?: string } | null,
+  formData: FormData
+) {
+  const preference = formData.get("notification_preference") as
+    | NotificationPreference
+    | null;
+
+  if (
+    !preference ||
+    !["popup", "badge_only", "none"].includes(preference)
+  ) {
+    return { error: "Invalid preference" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "You must be logged in to update notification preference" };
+  }
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      notification_preference: preference,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", user.id);
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  return { success: "Notification preference updated" };
+}
+
+export async function getNotificationPreference(): Promise<NotificationPreference | null> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return null;
+
+  const { data } = await supabase
+    .from("profiles")
+    .select("notification_preference")
+    .eq("id", user.id)
+    .single();
+
+  const p = data?.notification_preference;
+  return p === "popup" || p === "badge_only" || p === "none" ? p : "popup";
+}
+
 export async function updateThemePreference(theme: Theme) {
   const supabase = await createClient();
   const {

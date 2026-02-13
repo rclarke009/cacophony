@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "@/app/actions/auth";
 import { CreateServerDialog } from "@/components/chat/create-server-dialog";
+import { InviteNotifications } from "@/components/chat/invite-notifications";
 import { Button } from "@/components/ui/button";
 import { Home, LogOut, Settings } from "lucide-react";
 
@@ -86,6 +87,7 @@ export default async function ChatLayout({
         ))}
         <CreateServerDialog />
         <div className="mt-auto flex flex-col gap-1">
+          <InviteNotifications />
           <Button
             variant="ghost"
             size="icon"
