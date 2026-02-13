@@ -5,18 +5,44 @@ import { createClient } from "@/lib/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
+interface Attachment {
+  id: string;
+  file_path: string;
+  file_type: string;
+  signed_url?: string | null;
+}
+
 interface Message {
   id: string;
   content: string;
   created_at: string;
   user_id: string;
   username?: string | null;
+  attachments?: Attachment[];
 }
 
 interface MessageListProps {
   channelId: string;
   initialMessages: Message[];
   channelName: string;
+}
+
+const SIGNED_URL_EXPIRY = 3600; // 1 hour
+
+async function getSignedUrls(
+  supabase: ReturnType<typeof createClient>,
+  attachments: Attachment[]
+): Promise<Attachment[]> {
+  const imageAttachments = attachments.filter((a) => a.file_type === "image");
+  const results = await Promise.all(
+    imageAttachments.map(async (a) => {
+      const { data } = await supabase.storage
+        .from("attachments")
+        .createSignedUrl(a.file_path, SIGNED_URL_EXPIRY);
+      return { ...a, signed_url: data?.signedUrl ?? null };
+    })
+  );
+  return results;
 }
 
 export function MessageList({
@@ -33,7 +59,7 @@ export function MessageList({
       const supabase = createClient();
       const { data: msgs, error } = await supabase
         .from("messages")
-        .select("id, content, created_at, user_id")
+        .select("id, content, created_at, user_id, attachments(id, file_path, file_type)")
         .eq("channel_id", channelId)
         .order("created_at", { ascending: true });
 
@@ -49,10 +75,22 @@ export function MessageList({
         (profiles ?? []).map((p) => [p.id, p.username])
       );
 
-      return (msgs ?? []).map((m) => ({
-        ...m,
-        username: profileMap.get(m.user_id) ?? null,
-      })) as Message[];
+      const messagesWithUrls = await Promise.all(
+        (msgs ?? []).map(async (m) => {
+          const attachments = (m.attachments ?? []) as Attachment[];
+          const attachmentsWithUrls =
+            attachments.length > 0
+              ? await getSignedUrls(supabase, attachments)
+              : [];
+          return {
+            ...m,
+            username: profileMap.get(m.user_id) ?? null,
+            attachments: attachmentsWithUrls,
+          };
+        })
+      );
+
+      return messagesWithUrls as Message[];
     },
     initialData: initialMessages,
   });
@@ -114,11 +152,34 @@ export function MessageList({
                       {new Date(msg.created_at).toLocaleString()}
                     </span>
                   </div>
-                  <p
-                    className={`font-mono text-sm text-card-foreground ${isAction ? "message-action" : ""}`}
-                  >
-                    {msg.content}
-                  </p>
+                  {msg.content ? (
+                    <p
+                      className={`font-mono text-sm text-card-foreground ${isAction ? "message-action" : ""}`}
+                    >
+                      {msg.content}
+                    </p>
+                  ) : null}
+                  {msg.attachments && msg.attachments.length > 0 && (
+                    <div className="mt-1 flex flex-wrap gap-2">
+                      {msg.attachments.map((att) =>
+                        att.signed_url ? (
+                          <a
+                            key={att.id}
+                            href={att.signed_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block"
+                          >
+                            <img
+                              src={att.signed_url}
+                              alt=""
+                              className="max-h-64 max-w-full rounded border border-border object-contain"
+                            />
+                          </a>
+                        ) : null
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })
