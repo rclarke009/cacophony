@@ -17,11 +17,28 @@ function sanitizeFilename(name: string): string {
   return `${randomUUID()}.${ext}`;
 }
 
-export async function sendMessage(formData: FormData) {
+export type PrepareMessageInput = {
+  channelId: string;
+  content: string;
+  files?: Array<{ name: string; size: number; type: string }>;
+};
+
+export type PrepareMessageResult =
+  | { success: true }
+  | { messageId: string; uploads: Array<{ path: string; token: string; contentType: string }> }
+  | { error: string };
+
+/**
+ * Prepares a message with optional direct-upload tokens.
+ * For messages with files: creates message + signed URLs + attachment rows.
+ * Client uploads files directly to Supabase; files never hit Vercel.
+ */
+export async function prepareMessageWithUploads(
+  input: PrepareMessageInput
+): Promise<PrepareMessageResult> {
   try {
-    const channelId = formData.get("channel_id") as string;
-    const content = (formData.get("content") as string)?.trim() ?? "";
-    const files = formData.getAll("files") as File[];
+    const { channelId, content, files = [] } = input;
+    const trimmedContent = content?.trim() ?? "";
 
     if (!channelId) {
       return { error: "Channel is required" };
@@ -39,21 +56,42 @@ export async function sendMessage(formData: FormData) {
       return { error: "Not authenticated" };
     }
 
-    const hasContent = content.length > 0;
-    const hasFilesCheck =
-      files.length > 0 && files.every((f) => f instanceof File);
+    const hasContent = trimmedContent.length > 0;
+    const hasFiles = files.length > 0;
 
-    if (!hasContent && !hasFilesCheck) {
+    if (!hasContent && !hasFiles) {
       return { error: "Message cannot be empty" };
     }
-    if (content.length > MAX_MESSAGE_CONTENT_LENGTH) {
+    if (trimmedContent.length > MAX_MESSAGE_CONTENT_LENGTH) {
       return {
         error: `Message must be ${MAX_MESSAGE_CONTENT_LENGTH} characters or less`,
       };
     }
 
-    // Validate files if present
-    if (hasFilesCheck) {
+    // Security: explicit channel membership check before creating message or signed URLs
+    const { data: channel, error: channelError } = await supabase
+      .from("channels")
+      .select("server_id")
+      .eq("id", channelId)
+      .single();
+
+    if (channelError || !channel) {
+      return { error: "Channel not found" };
+    }
+
+    const { data: membership } = await supabase
+      .from("server_members")
+      .select("id")
+      .eq("server_id", channel.server_id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (!membership) {
+      return { error: "You must be a member of this channel to send messages" };
+    }
+
+    // Validate file metadata (server-validated contentType used for upload)
+    if (hasFiles) {
       if (files.length > MAX_IMAGES_PER_MESSAGE) {
         return {
           error: `Maximum ${MAX_IMAGES_PER_MESSAGE} images per message`,
@@ -66,7 +104,8 @@ export async function sendMessage(formData: FormData) {
         };
       }
       for (const file of files) {
-        if (!(ALLOWED_MIME_TYPES as readonly string[]).includes(file.type)) {
+        const allowed = ALLOWED_MIME_TYPES as readonly string[];
+        if (!allowed.includes(file.type)) {
           return {
             error: `Invalid file type. Allowed: JPEG, PNG, GIF, WebP`,
           };
@@ -82,7 +121,7 @@ export async function sendMessage(formData: FormData) {
       .insert({
         channel_id: channelId,
         user_id: user.id,
-        content: content || "",
+        content: trimmedContent || "",
       })
       .select("id")
       .single();
@@ -94,37 +133,53 @@ export async function sendMessage(formData: FormData) {
 
     const messageId = message.id;
 
-    if (hasFilesCheck) {
-      for (const file of files) {
-        const filename = sanitizeFilename(file.name);
-        const path = `${channelId}/${messageId}/${filename}`;
+    if (!hasFiles) {
+      revalidatePath(`/chat`);
+      return { success: true };
+    }
 
-        const { error: uploadError } = await supabase.storage
-          .from("attachments")
-          .upload(path, file, { contentType: file.type });
+    const uploads: Array<{ path: string; token: string; contentType: string }> = [];
 
-        if (uploadError) {
-          console.log("MYDEBUG →", uploadError);
-          return { error: uploadError.message };
-        }
+    for (const file of files) {
+      const filename = sanitizeFilename(file.name);
+      const path = `${channelId}/${messageId}/${filename}`;
 
-        const { error: attachError } = await supabase
-          .from("attachments")
-          .insert({
-            message_id: messageId,
-            file_path: path,
-            file_type: "image",
-          });
+      const { data: signedData, error: signError } = await supabase.storage
+        .from("attachments")
+        .createSignedUploadUrl(path);
 
-        if (attachError) {
-          console.log("MYDEBUG →", attachError);
-          return { error: attachError.message };
-        }
+      if (signError) {
+        console.log("MYDEBUG →", signError);
+        return { error: signError.message };
       }
+
+      if (!signedData?.token) {
+        return { error: "Failed to create upload URL" };
+      }
+
+      const { error: attachError } = await supabase
+        .from("attachments")
+        .insert({
+          message_id: messageId,
+          file_path: path,
+          file_type: "image",
+        });
+
+      if (attachError) {
+        console.log("MYDEBUG →", attachError);
+        return { error: attachError.message };
+      }
+
+      // Use server-validated contentType (not client-provided) for security
+      uploads.push({
+        path,
+        token: signedData.token,
+        contentType: file.type,
+      });
     }
 
     revalidatePath(`/chat`);
-    return { success: true };
+    return { messageId, uploads };
   } catch (err) {
     console.log("MYDEBUG →", err);
     return {

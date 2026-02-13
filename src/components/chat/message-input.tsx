@@ -11,6 +11,7 @@ import {
   MAX_MESSAGE_CONTENT_LENGTH,
   MAX_TOTAL_ATTACHMENTS,
 } from "@/lib/constants";
+import { createClient } from "@/lib/supabase/client";
 import { ImagePlus, X } from "lucide-react";
 
 interface MessageInputProps {
@@ -30,17 +31,29 @@ export function MessageInput({ channelId }: MessageInputProps) {
     const form = formRef.current;
     if (!form) return;
 
-    const formData = new FormData(form);
-    formData.set("channel_id", channelId);
-    selectedFiles.forEach((file) => formData.append("files", file));
+    const content = (form.elements.namedItem("content") as HTMLInputElement)?.value ?? "";
+
+    const body: { channel_id: string; content: string; files?: Array<{ name: string; size: number; type: string }> } = {
+      channel_id: channelId,
+      content,
+    };
+    if (selectedFiles.length > 0) {
+      body.files = selectedFiles.map((f) => ({ name: f.name, size: f.size, type: f.type }));
+    }
 
     try {
       const res = await fetch("/api/chat/send-message", {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
       });
       const text = await res.text();
-      let result: { error?: string; success?: boolean } = {};
+      let result: {
+        error?: string;
+        success?: boolean;
+        messageId?: string;
+        uploads?: Array<{ path: string; token: string; contentType: string }>;
+      } = {};
       try {
         result = text ? JSON.parse(text) : {};
       } catch {
@@ -57,6 +70,24 @@ export function MessageInput({ channelId }: MessageInputProps) {
         console.log("MYDEBUG →", result.error);
         return;
       }
+
+      // Direct upload: client uploads files to Supabase (bypasses Vercel 4.5 MB limit)
+      if (result.uploads && result.uploads.length > 0 && selectedFiles.length === result.uploads.length) {
+        const supabase = createClient();
+        for (let i = 0; i < result.uploads.length; i++) {
+          const { path, token, contentType } = result.uploads[i];
+          const { error: uploadError } = await supabase.storage
+            .from("attachments")
+            .uploadToSignedUrl(path, token, selectedFiles[i], { contentType });
+
+          if (uploadError) {
+            console.log("MYDEBUG →", uploadError);
+            setError(uploadError.message ?? "Failed to upload image");
+            return;
+          }
+        }
+      }
+
       queryClient.invalidateQueries({ queryKey: ["messages", channelId] });
       setSelectedFiles([]);
       form.reset();
