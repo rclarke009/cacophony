@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -76,6 +77,7 @@ export default async function JoinPage({ params }: PageProps) {
     .limit(1);
 
   const firstChannelId = channels?.[0]?.id;
+  revalidatePath("/chat");
   if (firstChannelId) {
     redirect(`/chat/${invite.server_id}/${firstChannelId}`);
   }

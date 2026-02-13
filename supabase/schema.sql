@@ -19,6 +19,7 @@ create table public.servers (
   id uuid primary key default uuid_generate_v4(),
   name text not null,
   icon_url text,
+  icon_emoji text,
   created_at timestamptz default now() not null,
   updated_at timestamptz default now() not null
 );

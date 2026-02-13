@@ -29,6 +29,7 @@ export default async function ChatLayout({
         id,
         name,
         icon_url,
+        icon_emoji,
         channels (
           id,
           name,
@@ -43,6 +44,7 @@ export default async function ChatLayout({
     id: string;
     name: string;
     icon_url: string | null;
+    icon_emoji: string | null;
     channels: { id: string; name: string; type: string }[];
   };
   const servers = (memberships
@@ -59,7 +61,11 @@ export default async function ChatLayout({
             className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-sidebar-accent text-sidebar-foreground transition-colors hover:rounded-xl hover:bg-sidebar-primary hover:text-sidebar-primary-foreground"
             title={server.name}
           >
-            {server.icon_url ? (
+            {server.icon_emoji ? (
+              <span className="text-2xl" aria-hidden>
+                {server.icon_emoji}
+              </span>
+            ) : server.icon_url ? (
               <img
                 src={server.icon_url}
                 alt={server.name}

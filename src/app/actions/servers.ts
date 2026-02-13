@@ -3,9 +3,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 
 export async function createServer(prevState: { error?: string } | null, formData: FormData) {
   const name = (formData.get("name") as string)?.trim();
+  const iconEmoji = (formData.get("icon_emoji") as string)?.trim() || null;
 
   if (!name) {
     return { error: "Server name is required" };
@@ -24,7 +26,7 @@ export async function createServer(prevState: { error?: string } | null, formDat
 
   const { data: server, error: serverError } = await admin
     .from("servers")
-    .insert({ name })
+    .insert({ name, icon_emoji: iconEmoji })
     .select("id")
     .single();
 
@@ -61,5 +63,6 @@ export async function createServer(prevState: { error?: string } | null, formDat
     return { error: channelError?.message ?? "Failed to create default channel" };
   }
 
+  revalidatePath("/chat");
   redirect(`/chat/${server.id}/${channel.id}`);
 }
