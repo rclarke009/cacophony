@@ -2,6 +2,7 @@ import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { CreateChannelDialog } from "@/components/chat/create-channel-dialog";
+import { InvitePeopleDialog } from "@/components/chat/invite-people-dialog";
 import { ThemeSelector } from "@/components/theme-selector";
 import { MessageSquare } from "lucide-react";
 
@@ -60,7 +61,8 @@ export default async function ServerLayout({
             </Link>
           ))}
           {isAdmin && (
-            <div className="px-2 pt-2">
+            <div className="space-y-1 px-2 pt-2">
+              <InvitePeopleDialog serverId={serverId} />
               <CreateChannelDialog serverId={serverId} />
             </div>
           )}
