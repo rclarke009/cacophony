@@ -21,6 +21,25 @@ export function MessageInput({ channelId }: MessageInputProps) {
   async function handleSubmit(formData: FormData) {
     formData.set("channel_id", channelId);
     selectedFiles.forEach((file) => formData.append("files", file));
+    // #region agent log
+    const totalSize = selectedFiles.reduce((s, f) => s + f.size, 0);
+    fetch("http://127.0.0.1:7246/ingest/a980a933-dca8-4b08-ab47-6af3254c5013", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        location: "message-input.tsx:handleSubmit",
+        message: "Before sendMessage",
+        data: {
+          fileCount: selectedFiles.length,
+          totalSizeBytes: totalSize,
+          totalSizeMB: (totalSize / (1024 * 1024)).toFixed(2),
+          fileSizes: selectedFiles.map((f) => ({ name: f.name, size: f.size, type: f.type })),
+        },
+        timestamp: Date.now(),
+        hypothesisId: "H1_H2",
+      }),
+    }).catch(() => {});
+    // #endregion
     const result = await sendMessage(formData);
     if (!result?.error) {
       queryClient.invalidateQueries({ queryKey: ["messages", channelId] });
