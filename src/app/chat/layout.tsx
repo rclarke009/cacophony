@@ -2,8 +2,9 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { signOut } from "@/app/actions/auth";
+import { CreateServerDialog } from "@/components/chat/create-server-dialog";
 import { Button } from "@/components/ui/button";
-import { Home, LogOut } from "lucide-react";
+import { Home, LogOut, Settings } from "lucide-react";
 
 export default async function ChatLayout({
   children,
@@ -69,7 +70,19 @@ export default async function ChatLayout({
             )}
           </Link>
         ))}
-        <div className="mt-auto">
+        <CreateServerDialog />
+        <div className="mt-auto flex flex-col gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-muted-foreground hover:text-foreground"
+            title="Settings"
+            asChild
+          >
+            <Link href="/settings">
+              <Settings className="h-5 w-5" />
+            </Link>
+          </Button>
           <form action={signOut}>
             <Button
               type="submit"

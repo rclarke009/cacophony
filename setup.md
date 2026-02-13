@@ -99,6 +99,49 @@ In Vercel → Project → **Settings** → **Environment Variables**, add:
 
 ---
 
+## Testing Create Server & Create Channel
+
+### Prerequisites
+
+- App running (`npm run dev` locally or deployed)
+- At least one user signed in
+
+### Create Server
+
+| Step | Action | Expected result |
+|------|--------|-----------------|
+| 1 | Visit `/chat` with no servers (or use a fresh account) | Welcome screen shows "Create your own server" button |
+| 2 | Click "Create your own server" | Modal opens asking for server name |
+| 3 | Enter a name (e.g. "My Server") and click Create | Redirects to new server's general channel |
+| 4 | Check left sidebar | New server icon appears |
+| 5 | Click the **+** icon in the left sidebar (between servers and Settings) | Same create-server modal opens |
+| 6 | Submit with empty name | Error: "Server name is required" |
+| 7 | Submit with valid name | New server created, redirects to it |
+
+### Create Channel
+
+| Step | Action | Expected result |
+|------|--------|-----------------|
+| 1 | Open a server where you are **owner** or **admin** | "Create channel" link appears at bottom of channel list |
+| 2 | Click "Create channel" | Modal opens with name and type (text/voice) fields |
+| 3 | Enter name (e.g. "random"), leave type as Text, click Create | Redirects to new channel; it appears in sidebar |
+| 4 | Create another channel with type Voice | Voice channel appears in list |
+| 5 | Open a server where you are **member** (not owner/admin) | "Create channel" does **not** appear |
+| 6 | Submit create-channel form with empty name | Error: "Channel name is required" |
+
+### Quick local test
+
+```bash
+npm run dev
+```
+
+1. Sign in (or sign up with invite `cacophany-welcome`)
+2. If you have no servers: click "Create your own server", name it "Test", submit
+3. In the server sidebar, click "Create channel", add "random", submit
+4. Confirm both server and channel appear and you can send messages
+
+---
+
 ## Checklist
 
 - [ ] Supabase project created

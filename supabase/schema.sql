@@ -9,6 +9,7 @@ create table public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   username text unique,
   avatar_url text,
+  theme_preference text default 'dark' check (theme_preference in ('dark', 'retro')),
   created_at timestamptz default now() not null,
   updated_at timestamptz default now() not null
 );

@@ -1,6 +1,7 @@
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { CreateChannelDialog } from "@/components/chat/create-channel-dialog";
 import { ThemeSelector } from "@/components/theme-selector";
 import { MessageSquare } from "lucide-react";
 
@@ -31,6 +32,14 @@ export default async function ServerLayout({
     notFound();
   }
 
+  const { data: membership } = await supabase
+    .from("server_members")
+    .select("role")
+    .eq("server_id", serverId)
+    .eq("user_id", user.id)
+    .single();
+
+  const isAdmin = membership?.role === "owner" || membership?.role === "admin";
   const channels = (server.channels ?? []) as { id: string; name: string; type: string }[];
 
   return (
@@ -50,6 +59,11 @@ export default async function ServerLayout({
               {channel.name}
             </Link>
           ))}
+          {isAdmin && (
+            <div className="px-2 pt-2">
+              <CreateChannelDialog serverId={serverId} />
+            </div>
+          )}
         </nav>
         <div className="border-t border-sidebar-border p-2">
           <ThemeSelector />

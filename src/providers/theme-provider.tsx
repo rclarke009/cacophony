@@ -26,16 +26,25 @@ function getStoredTheme(): Theme {
   return "dark";
 }
 
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
+interface ThemeProviderProps {
+  children: React.ReactNode;
+  initialTheme?: Theme | null;
+}
+
+export function ThemeProvider({ children, initialTheme }: ThemeProviderProps) {
   const [theme, setThemeState] = useState<Theme>("dark");
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    const stored = getStoredTheme();
+    const fromProfile = initialTheme === "dark" || initialTheme === "retro" ? initialTheme : null;
+    const stored = fromProfile ?? getStoredTheme();
+    if (fromProfile) {
+      localStorage.setItem(STORAGE_KEY, fromProfile);
+    }
     setThemeState(stored);
     document.documentElement.setAttribute("data-theme", stored);
     setMounted(true);
-  }, []);
+  }, [initialTheme]);
 
   const setTheme = useCallback((newTheme: Theme) => {
     setThemeState(newTheme);

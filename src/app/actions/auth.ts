@@ -142,3 +142,45 @@ export async function updatePassword(
   }
   redirect("/login?reset=success");
 }
+
+export async function updateEmail(
+  prevState: { error?: string; success?: string } | null,
+  formData: FormData
+) {
+  const newEmail = (formData.get("email") as string)?.trim();
+
+  if (!newEmail) {
+    return { error: "Email is required" };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.updateUser({ email: newEmail });
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  return {
+    success:
+      "Check your new email address for a confirmation link. Your email will update after you click it.",
+  };
+}
+
+export async function updatePasswordFromSettings(
+  prevState: { error?: string; success?: string } | null,
+  formData: FormData
+) {
+  const password = formData.get("password") as string;
+  if (!password || password.length < 6) {
+    return { error: "Password must be at least 6 characters" };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.updateUser({ password });
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  return { success: "Password updated" };
+}
