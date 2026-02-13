@@ -61,7 +61,7 @@ After your first user signs up:
 
 3. **App running:** `npm run dev` locally, or deployed on Vercel.
 
-4. **Supabase Auth URLs:** If testing on Vercel, add your deploy URL (and `https://your-app.vercel.app/reset-password` for password reset) to Supabase → Auth → URL Configuration → Redirect URLs.
+4. **Supabase Auth URLs:** If testing on Vercel, add your deploy URL and `https://your-app.vercel.app/auth/callback` (for password reset) to Supabase → Auth → URL Configuration → Redirect URLs.
 
 ### Test Steps
 
