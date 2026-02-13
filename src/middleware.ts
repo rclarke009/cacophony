@@ -31,6 +31,14 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const pathname = request.nextUrl.pathname;
+  const code = request.nextUrl.searchParams.get("code");
+
+  // Password reset (and other auth) links often land at /?code=... — send to reset-password
+  if (pathname === "/" && code) {
+    const resetUrl = new URL("/reset-password", request.url);
+    resetUrl.searchParams.set("code", code);
+    return NextResponse.redirect(resetUrl);
+  }
 
   if (user && pathname === "/") {
     return NextResponse.redirect(new URL("/chat", request.url));

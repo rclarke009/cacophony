@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,40 +17,54 @@ import {
 import { updatePassword } from "@/app/actions/auth";
 import { createClient } from "@/lib/supabase/client";
 
-export default function ResetPasswordPage() {
+function ResetPasswordForm() {
   const [state, formAction] = useActionState(updatePassword, null);
   const [ready, setReady] = useState(false);
   const [invalidLink, setInvalidLink] = useState(false);
+  const searchParams = useSearchParams();
+  const code = searchParams.get("code");
 
   useEffect(() => {
     const supabase = createClient();
     const hash = typeof window !== "undefined" ? window.location.hash : "";
     const hasRecovery = hash.includes("type=recovery");
 
-    let attempts = 0;
-    const maxAttempts = 25; // ~5s
-    const check = () => {
-      supabase.auth.getSession().then(({ data: { session: s } }) => {
-        if (s?.user) {
-          setReady(true);
-        } else if (attempts >= maxAttempts) {
-          setInvalidLink(true);
-        } else {
-          attempts += 1;
-          setTimeout(check, 200);
+    const finish = (session: { user: unknown } | null) => {
+      if (session?.user) {
+        setReady(true);
+        if (typeof window !== "undefined" && code) {
+          window.history.replaceState({}, "", "/reset-password");
         }
-      });
+        return;
+      }
+      if (hasRecovery) {
+        let attempts = 0;
+        const maxAttempts = 25;
+        const check = () => {
+          supabase.auth.getSession().then(({ data: { session: s } }) => {
+            if (s?.user) setReady(true);
+            else if (attempts >= maxAttempts) setInvalidLink(true);
+            else {
+              attempts += 1;
+              setTimeout(check, 200);
+            }
+          });
+        };
+        check();
+      } else {
+        setInvalidLink(true);
+      }
     };
 
-    if (hasRecovery) {
-      check();
-    } else {
-      supabase.auth.getSession().then(({ data: { session: s } }) => {
-        setReady(!!s?.user);
-        if (!s?.user) setInvalidLink(true);
+    if (code) {
+      supabase.auth.exchangeCodeForSession(code).then(({ data: { session }, error }) => {
+        if (error) console.error("MYDEBUG →", error);
+        finish(session);
       });
+    } else {
+      supabase.auth.getSession().then(({ data: { session } }) => finish(session));
     }
-  }, []);
+  }, [code]);
 
   if (!ready && !invalidLink) {
     return (
@@ -119,5 +134,23 @@ export default function ResetPasswordPage() {
         </form>
       </Card>
     </div>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-950 p-8">
+          <Card className="w-full max-w-md">
+            <CardContent className="py-8">
+              <p className="text-center text-muted-foreground">Loading...</p>
+            </CardContent>
+          </Card>
+        </div>
+      }
+    >
+      <ResetPasswordForm />
+    </Suspense>
   );
 }
