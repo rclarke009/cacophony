@@ -2,9 +2,11 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isValidHexColor, isSingleEmoji } from "@/lib/validation";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 
+const MAX_SERVER_NAME_LENGTH = 100;
 const ALLOWED_ICON_MIME_TYPES = [
   "image/jpeg",
   "image/png",
@@ -32,6 +34,20 @@ export async function createServer(prevState: { error?: string } | null, formDat
   if (!name) {
     return { error: "Server name is required" };
   }
+  if (name.length > MAX_SERVER_NAME_LENGTH) {
+    return { error: `Server name must be ${MAX_SERVER_NAME_LENGTH} characters or less` };
+  }
+
+  // Validate icon_emoji and icon_color (when not using image)
+  const hasImage = iconFile && iconFile instanceof File && iconFile.size > 0;
+  if (!hasImage) {
+    if (iconEmoji && !isSingleEmoji(iconEmoji)) {
+      return { error: "Invalid icon emoji" };
+    }
+    if (iconColor && !isValidHexColor(iconColor)) {
+      return { error: "Invalid icon color. Use a hex color (e.g. #3b82f6)" };
+    }
+  }
 
   // Validate icon file if present
   if (iconFile && iconFile instanceof File && iconFile.size > 0) {
@@ -55,7 +71,6 @@ export async function createServer(prevState: { error?: string } | null, formDat
   const admin = createAdminClient();
 
   // Determine icon: image takes precedence, then color, then emoji
-  const hasImage = iconFile && iconFile instanceof File && iconFile.size > 0;
   const serverInsert: { name: string; icon_emoji?: string | null; icon_color?: string | null; icon_url?: string | null } = {
     name,
     icon_emoji: hasImage ? null : iconEmoji || null,

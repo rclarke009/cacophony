@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isValidUUID } from "@/lib/validation";
 
 export type PendingInvite = {
   id: string;
@@ -27,6 +28,9 @@ export async function sendDirectInvite(
 
   if (user.id === invitedUserId) {
     return { error: "You cannot invite yourself" };
+  }
+  if (!isValidUUID(serverId) || !isValidUUID(invitedUserId)) {
+    return { error: "Invalid server or user" };
   }
 
   const { data: membership } = await supabase
@@ -90,6 +94,9 @@ export async function acceptDirectInvite(inviteId: string) {
 
   if (!user) {
     return { error: "You must be signed in to accept an invite" };
+  }
+  if (!isValidUUID(inviteId)) {
+    return { error: "Invalid invite" };
   }
 
   const { data: invite, error: inviteError } = await supabase
@@ -156,6 +163,9 @@ export async function declineDirectInvite(
 
   if (!user) {
     return { error: "You must be signed in to decline an invite" };
+  }
+  if (!isValidUUID(inviteId)) {
+    return { error: "Invalid invite" };
   }
 
   const { data: invite, error: inviteError } = await supabase

@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { isValidUUID } from "@/lib/validation";
 import { nanoid } from "nanoid";
 
 const DEFAULT_MAX_USES = 10;
@@ -13,6 +14,9 @@ export async function createInvite(serverId: string, maxUses = DEFAULT_MAX_USES)
 
   if (!user) {
     return { error: "You must be signed in to create an invite" };
+  }
+  if (!isValidUUID(serverId)) {
+    return { error: "Invalid server" };
   }
 
   const { data: membership } = await supabase

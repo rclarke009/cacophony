@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 
+const MAX_USERNAME_LENGTH = 32;
+
 export async function signIn(
   prevState: { error?: string } | null,
   formData: FormData
@@ -43,6 +45,12 @@ export async function signUp(
 
   if (!inviteCode) {
     return { error: "You need an invite code to sign up." };
+  }
+
+  if (username && (username.length < 3 || username.length > MAX_USERNAME_LENGTH)) {
+    return {
+      error: `Username must be between 3 and ${MAX_USERNAME_LENGTH} characters`,
+    };
   }
 
   const admin = createAdminClient();

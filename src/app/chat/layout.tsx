@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { isValidHexColor, isSingleEmoji } from "@/lib/validation";
 import { signOut } from "@/app/actions/auth";
 import { CreateServerDialog } from "@/components/chat/create-server-dialog";
 import { InviteNotifications } from "@/components/chat/invite-notifications";
@@ -64,13 +65,13 @@ export default async function ChatLayout({
             className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-sidebar-accent text-sidebar-foreground transition-colors hover:rounded-xl hover:bg-sidebar-primary hover:text-sidebar-primary-foreground"
             title={server.name}
           >
-            {server.icon_color ? (
+            {server.icon_color && isValidHexColor(server.icon_color) ? (
               <div
                 className="h-8 w-8 rounded-lg"
                 style={{ backgroundColor: server.icon_color }}
                 aria-hidden
               />
-            ) : server.icon_emoji ? (
+            ) : server.icon_emoji && isSingleEmoji(server.icon_emoji) ? (
               <span className="text-2xl" aria-hidden>
                 {server.icon_emoji}
               </span>

@@ -1,8 +1,11 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { isValidUUID } from "@/lib/validation";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+
+const MAX_CHANNEL_NAME_LENGTH = 100;
 
 export async function createChannel(
   prevState: { error?: string } | null,
@@ -15,9 +18,15 @@ export async function createChannel(
   if (!serverId) {
     return { error: "Server ID is required" };
   }
+  if (!isValidUUID(serverId)) {
+    return { error: "Invalid server" };
+  }
 
   if (!name) {
     return { error: "Channel name is required" };
+  }
+  if (name.length > MAX_CHANNEL_NAME_LENGTH) {
+    return { error: `Channel name must be ${MAX_CHANNEL_NAME_LENGTH} characters or less` };
   }
 
   const supabase = await createClient();

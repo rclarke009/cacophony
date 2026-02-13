@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 
 export type Theme = "dark" | "retro";
 
+const MAX_USERNAME_LENGTH = 32;
+
 export async function updateProfile(
   prevState: { error?: string; success?: string } | null,
   formData: FormData
@@ -27,6 +29,9 @@ export async function updateProfile(
   if (username !== undefined && username !== null) {
     if (username.length > 0 && username.length < 3) {
       return { error: "Username must be at least 3 characters" };
+    }
+    if (username.length > MAX_USERNAME_LENGTH) {
+      return { error: `Username must be ${MAX_USERNAME_LENGTH} characters or less` };
     }
     updates.username = username || null;
   }

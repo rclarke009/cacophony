@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { isValidUUID } from "@/lib/validation";
 import { revalidatePath } from "next/cache";
 import { randomUUID } from "crypto";
 
@@ -12,6 +13,7 @@ const ALLOWED_MIME_TYPES = [
 ];
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 const MAX_IMAGES_PER_MESSAGE = 5;
+const MAX_MESSAGE_CONTENT_LENGTH = 4000;
 
 function sanitizeFilename(name: string): string {
   const ext = name.split(".").pop() || "jpg";
@@ -25,6 +27,9 @@ export async function sendMessage(formData: FormData) {
 
   if (!channelId) {
     return { error: "Channel is required" };
+  }
+  if (!isValidUUID(channelId)) {
+    return { error: "Invalid channel" };
   }
 
   const supabase = await createClient();
@@ -41,6 +46,9 @@ export async function sendMessage(formData: FormData) {
 
   if (!hasContent && !hasFilesCheck) {
     return { error: "Message cannot be empty" };
+  }
+  if (content.length > MAX_MESSAGE_CONTENT_LENGTH) {
+    return { error: `Message must be ${MAX_MESSAGE_CONTENT_LENGTH} characters or less` };
   }
 
   // Validate files if present

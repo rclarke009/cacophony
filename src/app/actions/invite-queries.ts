@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { isValidUUID } from "@/lib/validation";
 
 export type InviteableUser = {
   id: string;
@@ -16,6 +17,7 @@ export async function getKnownUsersForInvite(
   } = await supabase.auth.getUser();
 
   if (!user) return [];
+  if (!isValidUUID(serverId)) return [];
 
   const { data: myServers } = await supabase
     .from("server_members")
@@ -67,6 +69,7 @@ export async function searchUsersByUsername(
   } = await supabase.auth.getUser();
 
   if (!user) return [];
+  if (!isValidUUID(serverId)) return [];
   const trimmed = query.trim();
   if (trimmed.length < 2) return [];
 
