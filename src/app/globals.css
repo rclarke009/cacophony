@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:is([data-theme="dark"] *));
+@custom-variant retro (&:is([data-theme="retro"] *));
 
 @theme inline {
   --color-background: var(--background);
@@ -80,20 +81,20 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
-.dark {
+[data-theme="dark"] {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
+  --primary: oklch(0.488 0.243 264.376);
+  --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
   --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
+  --accent: oklch(0.35 0.15 280);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
@@ -108,10 +109,117 @@
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.488 0.243 264.376);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent: oklch(0.35 0.15 280);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+}
+
+[data-theme="retro"] {
+  --radius: 2px;
+  --background: #c0c0c0;
+  --foreground: #000000;
+  --card: #ffffff;
+  --card-foreground: #000000;
+  --popover: #ffffff;
+  --popover-foreground: #000000;
+  --primary: #000080;
+  --primary-foreground: #ffffff;
+  --secondary: #d4d0c8;
+  --secondary-foreground: #000000;
+  --muted: #d4d0c8;
+  --muted-foreground: #404040;
+  --accent: #d4d0c8;
+  --accent-foreground: #000000;
+  --destructive: #800000;
+  --border: #808080;
+  --input: #808080;
+  --ring: #000080;
+  --chart-1: #000080;
+  --chart-2: #008000;
+  --chart-3: #800080;
+  --chart-4: #808000;
+  --chart-5: #008080;
+  --sidebar: #c0c0c0;
+  --sidebar-foreground: #000000;
+  --sidebar-primary: #000080;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #000080;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #808080;
+  --sidebar-ring: #000080;
+}
+
+[data-theme="retro"] ::-webkit-scrollbar {
+  width: 16px;
+  height: 16px;
+}
+
+[data-theme="retro"] ::-webkit-scrollbar-track {
+  background: #c0c0c0;
+  border: 1px solid #808080;
+}
+
+[data-theme="retro"] ::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #c0c0c0 0%, #808080 50%, #404040 100%);
+  border: 1px solid #808080;
+  border-radius: 0;
+}
+
+[data-theme="retro"] ::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #d4d0c8 0%, #909090 50%, #505050 100%);
+}
+
+[data-theme="retro"] ::-webkit-scrollbar-corner {
+  background: #c0c0c0;
+  border: 1px solid #808080;
+}
+
+/* Retro 3D bevels */
+[data-theme="retro"] button {
+  border: 2px solid;
+  border-top-color: #dfdfdf;
+  border-left-color: #dfdfdf;
+  border-right-color: #808080;
+  border-bottom-color: #808080;
+  box-shadow: 1px 1px 0 #000;
+}
+
+[data-theme="retro"] button:hover:not(:disabled) {
+  border-top-color: #ffffff;
+  border-left-color: #ffffff;
+}
+
+[data-theme="retro"] button:active:not(:disabled) {
+  border-top-color: #808080;
+  border-left-color: #808080;
+  border-right-color: #dfdfdf;
+  border-bottom-color: #dfdfdf;
+  box-shadow: inset 1px 1px 0 #000;
+}
+
+[data-theme="retro"] input,
+[data-theme="retro"] select,
+[data-theme="retro"] textarea {
+  border: 2px solid !important;
+  border-top-color: #808080 !important;
+  border-left-color: #808080 !important;
+  border-right-color: #dfdfdf !important;
+  border-bottom-color: #dfdfdf !important;
+  background: #ffffff !important;
+}
+
+[data-theme="retro"] .message-action {
+  color: #800080;
+}
+
+[data-theme="retro"] .channel-header {
+  background: linear-gradient(90deg, #000080 0%, #1084d0 100%);
+  border-bottom: 1px solid #808080;
+}
+
+[data-theme="retro"] .channel-header h1 {
+  color: #ffffff;
 }
 
 @layer base {

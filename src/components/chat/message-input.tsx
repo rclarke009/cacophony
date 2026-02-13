@@ -28,12 +28,12 @@ export function MessageInput({ channelId }: MessageInputProps) {
     <form
       ref={formRef}
       action={handleSubmit}
-      className="flex gap-2 border-t border-zinc-800 bg-zinc-900/30 p-4"
+      className="flex gap-2 border-t border-border bg-muted/50 p-4"
     >
       <Input
         name="content"
         placeholder="Type a message..."
-        className="flex-1 bg-zinc-800 border-zinc-700 text-zinc-100 placeholder:text-zinc-500"
+        className="flex-1 bg-background"
         autoComplete="off"
       />
       <SubmitButton />

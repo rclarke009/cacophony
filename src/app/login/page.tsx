@@ -15,6 +15,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { signIn } from "@/app/actions/auth";
+import { ThemeSelector } from "@/components/theme-selector";
 
 function LoginForm() {
   const [state, formAction] = useActionState(signIn, null);
@@ -22,7 +23,10 @@ function LoginForm() {
   const resetSuccess = searchParams.get("reset") === "success";
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-950 p-8">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background p-8">
+      <div className="absolute right-4 top-4">
+        <ThemeSelector />
+      </div>
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-2xl">Log in</CardTitle>
@@ -92,7 +96,7 @@ function LoginForm() {
 export default function LoginPage() {
   return (
     <Suspense fallback={
-      <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-950 p-8">
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background p-8">
         <Card className="w-full max-w-md">
           <CardContent className="py-8">
             <p className="text-center text-muted-foreground">Loading...</p>

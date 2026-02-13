@@ -90,31 +90,38 @@ export function MessageList({
   }, [messages.length]);
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden">
-      <div className="flex h-12 items-center border-b border-zinc-800 px-4">
-        <h1 className="font-semibold text-zinc-100"># {channelName}</h1>
+    <div className="flex flex-1 flex-col overflow-hidden bg-card">
+      <div className="channel-header flex h-12 items-center border-b border-border px-4">
+        <h1 className="font-semibold text-foreground"># {channelName}</h1>
       </div>
 
       <ScrollArea className="flex-1">
         <div className="flex flex-col gap-4 p-4">
           {messages.length === 0 ? (
-            <p className="py-8 text-center text-sm text-zinc-500">
+            <p className="py-8 text-center text-sm text-muted-foreground">
               No messages yet. Say something!
             </p>
           ) : (
-            messages.map((msg) => (
-              <div key={msg.id} className="flex flex-col gap-0.5">
-                <div className="flex items-baseline gap-2">
-                  <span className="font-medium text-zinc-200">
-                    {msg.username ?? "Anonymous"}
-                  </span>
-                  <span className="text-xs text-zinc-500">
-                    {new Date(msg.created_at).toLocaleString()}
-                  </span>
+            messages.map((msg) => {
+              const isAction = msg.content.startsWith("*");
+              return (
+                <div key={msg.id} className="flex flex-col gap-0.5">
+                  <div className="flex items-baseline gap-2">
+                    <span className="font-medium text-foreground">
+                      {msg.username ?? "Anonymous"}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(msg.created_at).toLocaleString()}
+                    </span>
+                  </div>
+                  <p
+                    className={`font-mono text-sm text-card-foreground ${isAction ? "message-action" : ""}`}
+                  >
+                    {msg.content}
+                  </p>
                 </div>
-                <p className="font-mono text-sm text-zinc-300">{msg.content}</p>
-              </div>
-            ))
+              );
+            })
           )}
           <div ref={scrollRef} />
         </div>

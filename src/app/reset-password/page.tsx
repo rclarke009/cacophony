@@ -15,6 +15,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { updatePassword } from "@/app/actions/auth";
+import { ThemeSelector } from "@/components/theme-selector";
 import { createClient } from "@/lib/supabase/client";
 
 function ResetPasswordForm() {
@@ -68,7 +69,10 @@ function ResetPasswordForm() {
 
   if (!ready && !invalidLink) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-950 p-8">
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background p-8">
+        <div className="absolute right-4 top-4">
+          <ThemeSelector />
+        </div>
         <Card className="w-full max-w-md">
           <CardContent className="py-8">
             <p className="text-center text-muted-foreground">Checking your link...</p>
@@ -80,7 +84,10 @@ function ResetPasswordForm() {
 
   if (invalidLink) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-950 p-8">
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background p-8">
+        <div className="absolute right-4 top-4">
+          <ThemeSelector />
+        </div>
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle className="text-2xl">Invalid or expired link</CardTitle>
@@ -99,7 +106,10 @@ function ResetPasswordForm() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-950 p-8">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background p-8">
+      <div className="absolute right-4 top-4">
+        <ThemeSelector />
+      </div>
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-2xl">Set new password</CardTitle>
@@ -141,7 +151,10 @@ export default function ResetPasswordPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-950 p-8">
+        <div className="flex min-h-screen flex-col items-center justify-center bg-background p-8">
+          <div className="absolute right-4 top-4">
+            <ThemeSelector />
+          </div>
           <Card className="w-full max-w-md">
             <CardContent className="py-8">
               <p className="text-center text-muted-foreground">Loading...</p>

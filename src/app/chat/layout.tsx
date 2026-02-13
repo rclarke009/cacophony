@@ -49,13 +49,13 @@ export default async function ChatLayout({
     .filter(Boolean) ?? []) as ServerWithChannels[];
 
   return (
-    <div className="flex h-screen bg-zinc-950">
-      <aside className="flex w-14 flex-col items-center gap-2 border-r border-zinc-800 bg-zinc-900/50 py-3">
+    <div className="flex h-screen bg-background">
+      <aside className="flex w-14 flex-col items-center gap-2 border-r border-sidebar-border bg-sidebar py-3">
         {servers?.map((server) => (
           <Link
             key={server.id}
             href={`/chat/${server.id}/${server.channels?.[0]?.id ?? ""}`}
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-zinc-800 text-zinc-300 transition-colors hover:rounded-xl hover:bg-primary hover:text-primary-foreground"
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-sidebar-accent text-sidebar-foreground transition-colors hover:rounded-xl hover:bg-sidebar-primary hover:text-sidebar-primary-foreground"
             title={server.name}
           >
             {server.icon_url ? (
@@ -75,7 +75,7 @@ export default async function ChatLayout({
               type="submit"
               variant="ghost"
               size="icon"
-              className="text-zinc-400 hover:text-zinc-100"
+              className="text-muted-foreground hover:text-foreground"
               title="Log out"
             >
               <LogOut className="h-5 w-5" />

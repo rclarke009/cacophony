@@ -14,12 +14,16 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { requestPasswordReset } from "@/app/actions/auth";
+import { ThemeSelector } from "@/components/theme-selector";
 
 export default function ForgotPasswordPage() {
   const [state, formAction] = useActionState(requestPasswordReset, null);
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-950 p-8">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background p-8">
+      <div className="absolute right-4 top-4">
+        <ThemeSelector />
+      </div>
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-2xl">Forgot password</CardTitle>

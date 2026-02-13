@@ -1,6 +1,7 @@
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { ThemeSelector } from "@/components/theme-selector";
 import { MessageSquare } from "lucide-react";
 
 export default async function ServerLayout({
@@ -34,22 +35,25 @@ export default async function ServerLayout({
 
   return (
     <>
-      <aside className="flex w-56 flex-col border-r border-zinc-800 bg-zinc-900/30">
-        <div className="flex h-12 items-center border-b border-zinc-800 px-4">
-          <h2 className="font-semibold text-zinc-100">{server.name}</h2>
+      <aside className="flex w-56 flex-col border-r border-sidebar-border bg-sidebar">
+        <div className="flex h-12 items-center border-b border-sidebar-border px-4">
+          <h2 className="font-semibold text-sidebar-foreground">{server.name}</h2>
         </div>
         <nav className="flex-1 overflow-y-auto p-2">
           {channels.map((channel) => (
             <Link
               key={channel.id}
               href={`/chat/${serverId}/${channel.id}`}
-              className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-zinc-400 transition-colors hover:bg-zinc-800 hover:text-zinc-100"
+              className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
             >
               <MessageSquare className="h-4 w-4 shrink-0" />
               {channel.name}
             </Link>
           ))}
         </nav>
+        <div className="border-t border-sidebar-border p-2">
+          <ThemeSelector />
+        </div>
       </aside>
       <main className="flex flex-1 flex-col overflow-hidden">{children}</main>
     </>

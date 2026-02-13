@@ -15,6 +15,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { signUp } from "@/app/actions/auth";
+import { ThemeSelector } from "@/components/theme-selector";
 
 function SignupForm() {
   const [state, formAction] = useActionState(signUp, null);
@@ -25,7 +26,10 @@ function SignupForm() {
   );
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-950 p-8">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background p-8">
+      <div className="absolute right-4 top-4">
+        <ThemeSelector />
+      </div>
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle className="text-2xl">Sign up</CardTitle>
@@ -111,7 +115,7 @@ export default function SignupPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-950 p-8">
+        <div className="flex min-h-screen flex-col items-center justify-center bg-background p-8">
           <Card className="w-full max-w-md">
             <CardContent className="py-8">
               <p className="text-center text-muted-foreground">Loading...</p>
