@@ -19,6 +19,9 @@ export async function signIn(
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
+    if (process.env.NODE_ENV === "development") {
+      console.log("MYDEBUG →", { code: error.code, message: error.message });
+    }
     return { error: error.message };
   }
 
@@ -95,4 +98,47 @@ export async function signOut() {
   const supabase = await createClient();
   await supabase.auth.signOut();
   redirect("/");
+}
+
+export async function requestPasswordReset(
+  prevState: { error?: string; success?: string } | null,
+  formData: FormData
+) {
+  const email = (formData.get("email") as string)?.trim();
+  if (!email) {
+    return { error: "Email is required" };
+  }
+
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL ??
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+  const redirectTo = `${baseUrl}/reset-password`;
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo,
+  });
+
+  if (error) {
+    return { error: error.message };
+  }
+  return { success: "If an account exists for that email, we sent a reset link." };
+}
+
+export async function updatePassword(
+  prevState: { error?: string; success?: string } | null,
+  formData: FormData
+) {
+  const password = formData.get("password") as string;
+  if (!password || password.length < 6) {
+    return { error: "Password must be at least 6 characters" };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.updateUser({ password });
+
+  if (error) {
+    return { error: error.message };
+  }
+  redirect("/login?reset=success");
 }

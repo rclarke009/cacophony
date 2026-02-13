@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,8 +16,10 @@ import {
 } from "@/components/ui/card";
 import { signIn } from "@/app/actions/auth";
 
-export default function LoginPage() {
+function LoginForm() {
   const [state, formAction] = useActionState(signIn, null);
+  const searchParams = useSearchParams();
+  const resetSuccess = searchParams.get("reset") === "success";
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-950 p-8">
@@ -29,6 +32,11 @@ export default function LoginPage() {
         </CardHeader>
         <form action={formAction}>
           <CardContent className="space-y-4">
+            {resetSuccess && (
+              <p className="text-sm text-green-600 dark:text-green-400" role="status">
+                Password updated. You can log in with your new password.
+              </p>
+            )}
             {state?.error && (
               <p className="text-sm text-red-500" role="alert">
                 {state.error}
@@ -54,6 +62,11 @@ export default function LoginPage() {
                 required
                 autoComplete="current-password"
               />
+              <p className="text-right text-xs">
+                <Link href="/forgot-password" className="text-muted-foreground hover:underline">
+                  Forgot password?
+                </Link>
+              </p>
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
@@ -73,5 +86,21 @@ export default function LoginPage() {
         </form>
       </Card>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen flex-col items-center justify-center bg-zinc-950 p-8">
+        <Card className="w-full max-w-md">
+          <CardContent className="py-8">
+            <p className="text-center text-muted-foreground">Loading...</p>
+          </CardContent>
+        </Card>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }
