@@ -144,8 +144,9 @@ supabase/
 
 To enable live message updates when others send messages:
 
-1. Supabase Dashboard → **Database** → **Replication**
-2. Enable replication for the `messages` table
+**Option A — Dashboard:** Supabase Dashboard → **Database** → **Replication** → enable replication for the `messages` table.
+
+**Option B — SQL:** In the SQL Editor, run `supabase/replication.sql` (adds `messages` to the realtime publication).
 
 ## Next Steps
 

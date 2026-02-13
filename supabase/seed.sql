@@ -9,13 +9,11 @@
 --
 -- This creates: Home server, general channel, and invite code "cacophany-welcome" (10 uses).
 -- Share the invite link: https://yourapp.com/signup?invite=cacophany-welcome
-https://cacophony-ten.vercel.app/signup?invite=cacophany-welcome
-
 
 do $$
 declare
   v_server_id uuid;
-  v_user_id uuid := 'a5d98b5e-40d6-4b0e-bfea-4e35280af8ad';
+  v_user_id uuid := 'YOUR_USER_ID_HERE';  -- Auth → Users → copy your user UUID
 begin
   -- Create Home server
   insert into public.servers (name)
