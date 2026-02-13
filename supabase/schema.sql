@@ -20,6 +20,7 @@ create table public.servers (
   name text not null,
   icon_url text,
   icon_emoji text,
+  icon_color text,
   created_at timestamptz default now() not null,
   updated_at timestamptz default now() not null
 );

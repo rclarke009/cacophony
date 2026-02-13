@@ -52,6 +52,12 @@ Note: The "Replication" page (BigQuery, Iceberg) is for data warehouses, not for
 1. Run `supabase/migrations/001_fix_server_members_rls_recursion.sql` in the SQL Editor
 2. This fixes the RLS policies that were causing the recursion
 
+### 8. Server Icons (emoji, color, custom image)
+
+1. Run `supabase/migrations/004_add_icon_emoji_to_servers.sql`
+2. Run `supabase/migrations/005_add_icon_color_to_servers.sql`
+3. For custom image uploads: create a **Storage** bucket named `server-icons`, set it to **public**. Or run `supabase/migrations/006_create_server_icons_bucket.sql` in the SQL Editor (if supported).
+
 ---
 
 ## Invite Flow
