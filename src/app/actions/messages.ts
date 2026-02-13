@@ -2,18 +2,15 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { isValidUUID } from "@/lib/validation";
+import {
+  ALLOWED_MIME_TYPES,
+  MAX_FILE_SIZE,
+  MAX_IMAGES_PER_MESSAGE,
+  MAX_MESSAGE_CONTENT_LENGTH,
+  MAX_TOTAL_ATTACHMENTS,
+} from "@/lib/constants";
 import { revalidatePath } from "next/cache";
 import { randomUUID } from "crypto";
-
-const ALLOWED_MIME_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/gif",
-  "image/webp",
-];
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
-const MAX_IMAGES_PER_MESSAGE = 5;
-const MAX_MESSAGE_CONTENT_LENGTH = 4000;
 
 function sanitizeFilename(name: string): string {
   const ext = name.split(".").pop() || "jpg";
@@ -62,14 +59,20 @@ export async function sendMessage(formData: FormData) {
           error: `Maximum ${MAX_IMAGES_PER_MESSAGE} images per message`,
         };
       }
+      const totalSize = files.reduce((sum, f) => sum + f.size, 0);
+      if (totalSize > MAX_TOTAL_ATTACHMENTS) {
+        return {
+          error: "Total attachment size must be under 4 MB",
+        };
+      }
       for (const file of files) {
-        if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+        if (!(ALLOWED_MIME_TYPES as readonly string[]).includes(file.type)) {
           return {
             error: `Invalid file type. Allowed: JPEG, PNG, GIF, WebP`,
           };
         }
         if (file.size > MAX_FILE_SIZE) {
-          return { error: "Each image must be under 5 MB" };
+          return { error: "Each image must be under 4 MB" };
         }
       }
     }

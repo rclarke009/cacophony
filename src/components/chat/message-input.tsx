@@ -6,6 +6,12 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { sendMessage } from "@/app/actions/messages";
+import {
+  MAX_FILE_SIZE,
+  MAX_IMAGES_PER_MESSAGE,
+  MAX_MESSAGE_CONTENT_LENGTH,
+  MAX_TOTAL_ATTACHMENTS,
+} from "@/lib/constants";
 import { ImagePlus, X } from "lucide-react";
 
 interface MessageInputProps {
@@ -17,8 +23,10 @@ export function MessageInput({ channelId }: MessageInputProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(formData: FormData) {
+    setError(null);
     formData.set("channel_id", channelId);
     selectedFiles.forEach((file) => formData.append("files", file));
     const result = await sendMessage(formData);
@@ -27,23 +35,45 @@ export function MessageInput({ channelId }: MessageInputProps) {
       setSelectedFiles([]);
       formRef.current?.reset();
     } else {
+      setError(result.error);
       console.log("MYDEBUG →", result.error);
     }
   }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setError(null);
     const files = Array.from(e.target.files ?? []);
     const images = files.filter((f) =>
       ["image/jpeg", "image/png", "image/gif", "image/webp"].includes(f.type)
     );
+    const valid = images.filter((f) => f.size <= MAX_FILE_SIZE);
+    const oversized = images.filter((f) => f.size > MAX_FILE_SIZE);
+    if (oversized.length > 0) {
+      setError(
+        `Some images were too large (max 4 MB each). ${oversized.length} skipped.`
+      );
+    }
     setSelectedFiles((prev) => {
-      const combined = [...prev, ...images].slice(0, 5);
+      const all = [...prev, ...valid];
+      const combined: File[] = [];
+      let total = 0;
+      for (const f of all) {
+        if (combined.length >= MAX_IMAGES_PER_MESSAGE) break;
+        if (total + f.size <= MAX_TOTAL_ATTACHMENTS) {
+          combined.push(f);
+          total += f.size;
+        } else {
+          setError("Total attachment size limited to 4 MB. Some images were not added.");
+          break;
+        }
+      }
       return combined;
     });
     e.target.value = "";
   }
 
   function removeFile(index: number) {
+    setError(null);
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   }
 
@@ -53,6 +83,11 @@ export function MessageInput({ channelId }: MessageInputProps) {
       action={handleSubmit}
       className="flex flex-col gap-2 border-t border-border bg-muted/50 p-4"
     >
+      {error && (
+        <p className="text-sm text-destructive" role="alert">
+          {error}
+        </p>
+      )}
       {selectedFiles.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {selectedFiles.map((file, i) => (
@@ -101,6 +136,8 @@ export function MessageInput({ channelId }: MessageInputProps) {
           placeholder="Type a message..."
           className="flex-1 bg-background"
           autoComplete="off"
+          maxLength={MAX_MESSAGE_CONTENT_LENGTH}
+          onChange={() => setError(null)}
         />
         <SubmitButton />
       </div>
