@@ -41,7 +41,8 @@ export function MessageInput({ channelId }: MessageInputProps) {
     }
 
     try {
-      const res = await fetch("/api/chat/send-message", {
+      const search = typeof window !== "undefined" ? window.location.search : "";
+      const res = await fetch(`/api/chat/send-message${search}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -77,7 +78,7 @@ export function MessageInput({ channelId }: MessageInputProps) {
           formData.append("message_id", result.messageId);
           formData.append("file", selectedFiles[i]);
 
-          const uploadRes = await fetch("/api/chat/upload-attachment", {
+          const uploadRes = await fetch(`/api/chat/upload-attachment${search}`, {
             method: "POST",
             body: formData,
           });
