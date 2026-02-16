@@ -133,12 +133,12 @@ export function MessageList({
   }, [messages.length]);
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden bg-card">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-card">
       <div className="channel-header flex h-12 items-center border-b border-border px-4">
         <h1 className="font-semibold text-foreground"># {channelName}</h1>
       </div>
 
-      <ScrollArea className="flex-1">
+      <ScrollArea className="min-h-0 flex-1">
         <div className="flex flex-col gap-4 p-4">
           {messages.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">
