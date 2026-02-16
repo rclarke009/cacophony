@@ -26,12 +26,13 @@ Invite-only Discord-like chat for friends. Built with Next.js 15, Supabase, and 
 cp .env.local.example .env.local
 ```
 
-3. Edit `.env.local` and paste your values:
+3. Edit `.env.local` and paste your values. For production, also set `NEXT_PUBLIC_APP_URL` so password-reset and auth redirects use your live URL:
 
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 SUPABASE_SERVICE_ROLE_KEY=eyJ...
+# Production: NEXT_PUBLIC_APP_URL=https://www.cacophony.us
 ```
 
 ### 3. Database Schema
@@ -61,7 +62,7 @@ After your first user signs up:
 
 3. **App running:** `npm run dev` locally, or deployed on Vercel.
 
-4. **Supabase Auth URLs:** If testing on Vercel, add your deploy URL and `https://your-app.vercel.app/auth/callback` (for password reset) to Supabase → Auth → URL Configuration → Redirect URLs.
+4. **Supabase Auth URLs:** For production (www.cacophony.us), set Supabase → Authentication → URL Configuration: **Site URL** = `https://www.cacophony.us`, and add to **Redirect URLs**: `https://www.cacophony.us`, `https://www.cacophony.us/**`, `https://www.cacophony.us/auth/callback`.
 
 ### Test Steps
 
@@ -157,7 +158,4 @@ To enable live message updates when others send messages:
 - [ ] Storage for avatars and attachments
 
 
-to share:
-https://cacophany.vercel.app/signup?invite=cacophany-welcome
-
-https://cacophony-ten.vercel.app/signup?invite=cacophany-welcome
+Production signup link to share: https://www.cacophony.us/signup?invite=cacophany-welcome

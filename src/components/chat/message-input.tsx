@@ -11,7 +11,6 @@ import {
   MAX_MESSAGE_CONTENT_LENGTH,
   MAX_TOTAL_ATTACHMENTS,
 } from "@/lib/constants";
-import { createClient } from "@/lib/supabase/client";
 import { ImagePlus, X } from "lucide-react";
 
 interface MessageInputProps {
@@ -52,7 +51,6 @@ export function MessageInput({ channelId }: MessageInputProps) {
         error?: string;
         success?: boolean;
         messageId?: string;
-        uploads?: Array<{ path: string; token: string; contentType: string }>;
       } = {};
       try {
         result = text ? JSON.parse(text) : {};
@@ -71,18 +69,23 @@ export function MessageInput({ channelId }: MessageInputProps) {
         return;
       }
 
-      // Direct upload: client uploads files to Supabase (bypasses Vercel 4.5 MB limit)
-      if (result.uploads && result.uploads.length > 0 && selectedFiles.length === result.uploads.length) {
-        const supabase = createClient();
-        for (let i = 0; i < result.uploads.length; i++) {
-          const { path, token, contentType } = result.uploads[i];
-          const { error: uploadError } = await supabase.storage
-            .from("attachments")
-            .uploadToSignedUrl(path, token, selectedFiles[i], { contentType });
+      // Server upload: POST each file to /api/chat/upload-attachment
+      if (result.messageId && selectedFiles.length > 0) {
+        for (let i = 0; i < selectedFiles.length; i++) {
+          const formData = new FormData();
+          formData.append("channel_id", channelId);
+          formData.append("message_id", result.messageId);
+          formData.append("file", selectedFiles[i]);
 
-          if (uploadError) {
-            console.log("MYDEBUG →", uploadError);
-            setError(uploadError.message ?? "Failed to upload image");
+          const uploadRes = await fetch("/api/chat/upload-attachment", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!uploadRes.ok) {
+            const errData = await uploadRes.json().catch(() => ({}));
+            setError(errData?.error ?? "Failed to upload image");
+            console.log("MYDEBUG →", errData?.error);
             return;
           }
         }
@@ -107,7 +110,7 @@ export function MessageInput({ channelId }: MessageInputProps) {
     const oversized = images.filter((f) => f.size > MAX_FILE_SIZE);
     if (oversized.length > 0) {
       setError(
-        `Some images were too large (max 4 MB each). ${oversized.length} skipped.`
+        `Some images were too large (max 3 MB each). ${oversized.length} skipped.`
       );
     }
     setSelectedFiles((prev) => {

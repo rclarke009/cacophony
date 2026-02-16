@@ -10,12 +10,6 @@ import {
   MAX_TOTAL_ATTACHMENTS,
 } from "@/lib/constants";
 import { revalidatePath } from "next/cache";
-import { randomUUID } from "crypto";
-
-function sanitizeFilename(name: string): string {
-  const ext = name.split(".").pop() || "jpg";
-  return `${randomUUID()}.${ext}`;
-}
 
 export type PrepareMessageInput = {
   channelId: string;
@@ -25,13 +19,12 @@ export type PrepareMessageInput = {
 
 export type PrepareMessageResult =
   | { success: true }
-  | { messageId: string; uploads: Array<{ path: string; token: string; contentType: string }> }
+  | { messageId: string }
   | { error: string };
 
 /**
- * Prepares a message with optional direct-upload tokens.
- * For messages with files: creates message + signed URLs + attachment rows.
- * Client uploads files directly to Supabase; files never hit Vercel.
+ * Prepares a message. For messages with files: creates message only.
+ * Client uploads files via /api/chat/upload-attachment (server uses service role).
  */
 export async function prepareMessageWithUploads(
   input: PrepareMessageInput
@@ -111,7 +104,7 @@ export async function prepareMessageWithUploads(
           };
         }
         if (file.size > MAX_FILE_SIZE) {
-          return { error: "Each image must be under 4 MB" };
+          return { error: "Each image must be under 3 MB" };
         }
       }
     }
@@ -138,48 +131,8 @@ export async function prepareMessageWithUploads(
       return { success: true };
     }
 
-    const uploads: Array<{ path: string; token: string; contentType: string }> = [];
-
-    for (const file of files) {
-      const filename = sanitizeFilename(file.name);
-      const path = `${channelId}/${messageId}/${filename}`;
-
-      const { data: signedData, error: signError } = await supabase.storage
-        .from("attachments")
-        .createSignedUploadUrl(path);
-
-      if (signError) {
-        console.log("MYDEBUG →", signError);
-        return { error: signError.message };
-      }
-
-      if (!signedData?.token) {
-        return { error: "Failed to create upload URL" };
-      }
-
-      const { error: attachError } = await supabase
-        .from("attachments")
-        .insert({
-          message_id: messageId,
-          file_path: path,
-          file_type: "image",
-        });
-
-      if (attachError) {
-        console.log("MYDEBUG →", attachError);
-        return { error: attachError.message };
-      }
-
-      // Use server-validated contentType (not client-provided) for security
-      uploads.push({
-        path,
-        token: signedData.token,
-        contentType: file.type,
-      });
-    }
-
     revalidatePath(`/chat`);
-    return { messageId, uploads };
+    return { messageId };
   } catch (err) {
     console.log("MYDEBUG →", err);
     return {

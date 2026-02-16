@@ -62,9 +62,9 @@ Note: The "Replication" page (BigQuery, Iceberg) is for data warehouses, not for
 
 ## Invite Flow
 
-**System invite** (platform signup): Share `https://yourapp.com/signup?invite=cacophany-welcome`. New users sign up and enter the app. They land in a **safe area** that explains they need invitations to join conversations (servers).
+**System invite** (platform signup): Share `https://www.cacophony.us/signup?invite=cacophany-welcome`. New users sign up and enter the app. They land in a **safe area** that explains they need invitations to join conversations (servers).
 
-**Server invite**: Share `https://yourapp.com/join/CODE` where CODE is an invite created for a specific server. Example: `https://yourapp.com/join/home-invite` (from seed). Logged-in users are added to that server and redirected to its chat. New users are redirected to signup with the code pre-filled; after signup they are added to the server automatically.
+**Server invite**: Share `https://www.cacophony.us/join/CODE` where CODE is an invite created for a specific server. Example: `https://www.cacophony.us/join/home-invite` (from seed). Logged-in users are added to that server and redirected to its chat. New users are redirected to signup with the code pre-filled; after signup they are added to the server automatically.
 
 ---
 
@@ -85,15 +85,19 @@ In Vercel → Project → **Settings** → **Environment Variables**, add:
 | `NEXT_PUBLIC_SUPABASE_URL` | `https://xxxxx.supabase.co` | From Supabase → API |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `eyJ...` | From Supabase → API |
 | `SUPABASE_SERVICE_ROLE_KEY` | `eyJ...` | From Supabase → API |
+| `NEXT_PUBLIC_APP_URL` | `https://www.cacophony.us` | Production app URL (password reset & auth redirects) |
 
 **Important:** Redeploy after adding or changing env vars.
 
-### 3. Auth Redirect URLs
+### 3. Supabase Auth URL Configuration (required for www.cacophony.us)
 
 1. Supabase Dashboard → **Authentication** → **URL Configuration**
-2. Add your Vercel URL to **Redirect URLs**:
-   - `https://your-app.vercel.app`
-   - `https://your-app.vercel.app/**`
+2. Set **Site URL** to: `https://www.cacophony.us`
+3. Under **Redirect URLs**, add (one per line):
+   - `https://www.cacophony.us`
+   - `https://www.cacophony.us/**`
+   - `https://www.cacophony.us/auth/callback`
+4. If you still use a Vercel preview URL for staging, you can also add that URL and `https://your-app.vercel.app/**` for testing.
 
 ---
 
@@ -154,6 +158,7 @@ npm run dev
 - [ ] Schema run in Supabase SQL Editor
 - [ ] Migration 002 run (server_id on invites)
 - [ ] Seed run with your user ID
-- [ ] Vercel env vars set (all 3)
-- [ ] Redirect URLs added in Supabase
-- [ ] Project redeployed on Vercel after env changes
+- [ ] Vercel env vars set (all 4: Supabase URL, anon key, service role key, `NEXT_PUBLIC_APP_URL=https://www.cacophony.us`)
+- [ ] Supabase Auth → URL Configuration: Site URL = `https://www.cacophony.us`, Redirect URLs include `https://www.cacophony.us/**` and `https://www.cacophony.us/auth/callback`
+- [ ] Custom domain www.cacophony.us added in Vercel (or your host) and nameservers set
+- [ ] Project redeployed after env or domain changes
