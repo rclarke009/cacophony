@@ -3,8 +3,6 @@
 import { useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ScrollArea } from "@/components/ui/scroll-area";
-
 interface Attachment {
   id: string;
   file_path: string;
@@ -138,7 +136,7 @@ export function MessageList({
         <h1 className="font-semibold text-foreground"># {channelName}</h1>
       </div>
 
-      <ScrollArea className="min-h-0 flex-1">
+      <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="flex flex-col gap-4 p-4">
           {messages.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">
@@ -200,7 +198,7 @@ export function MessageList({
           )}
           <div ref={scrollRef} />
         </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 }
