@@ -7,14 +7,22 @@ import {
   MAX_IMAGES_PER_MESSAGE,
 } from "@/lib/constants";
 import { revalidatePath } from "next/cache";
-import { randomUUID } from "crypto";
+import { createHash } from "crypto";
 
 /** 3 MB - stay under Vercel 4.5 MB request body limit */
 const MAX_UPLOAD_FILE_SIZE = 3 * 1024 * 1024;
 
-function sanitizeFilename(name: string): string {
-  const ext = name.split(".").pop() || "jpg";
-  return `${randomUUID()}.${ext}`;
+const MIME_TO_EXT: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/gif": "gif",
+  "image/webp": "webp",
+};
+
+function getContentAddressedPath(buffer: Buffer, contentType: string): string {
+  const hash = createHash("sha256").update(buffer).digest("hex");
+  const ext = MIME_TO_EXT[contentType] ?? "jpg";
+  return `by-hash/${hash}.${ext}`;
 }
 
 /**
@@ -117,25 +125,30 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const filename = sanitizeFilename(file.name);
-    const path = `${channelId}/${messageId}/${filename}`;
-
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
+    const path = getContentAddressedPath(buffer, file.type);
 
-    const { error: uploadError } = await admin.storage
+    // Deduplicate: only upload if this exact content isn't already stored
+    const { error: existsError } = await admin.storage
       .from("attachments")
-      .upload(path, buffer, {
-        contentType: file.type,
-        upsert: false,
-      });
+      .download(path);
 
-    if (uploadError) {
-      console.log("MYDEBUG →", uploadError);
-      return NextResponse.json(
-        { error: uploadError.message ?? "Failed to upload image" },
-        { status: 500 }
-      );
+    if (existsError) {
+      const { error: uploadError } = await admin.storage
+        .from("attachments")
+        .upload(path, buffer, {
+          contentType: file.type,
+          upsert: true,
+        });
+
+      if (uploadError) {
+        console.log("MYDEBUG →", uploadError);
+        return NextResponse.json(
+          { error: uploadError.message ?? "Failed to upload image" },
+          { status: 500 }
+        );
+      }
     }
 
     const { error: attachError } = await admin.from("attachments").insert({

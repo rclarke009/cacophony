@@ -11,3 +11,5 @@ make sure when user clicks send over and over on an image, that we only store it
 
 
 someday:
+Make a dashboard so I can tell if I'm going to hit the limits of the free tiers on vercel and supabase.
+
