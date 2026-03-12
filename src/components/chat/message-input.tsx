@@ -12,17 +12,156 @@ import {
   MAX_TOTAL_ATTACHMENTS,
 } from "@/lib/constants";
 import { ImagePlus, X } from "lucide-react";
+import {
+  timeoutMember,
+  kickMember,
+  banMember,
+  warnMember,
+  deleteMessage,
+  deleteMessagesBulk,
+  getServerMemberIdByUsername,
+  getLastMessageIdsInChannel,
+} from "@/app/actions/moderation";
 
 interface MessageInputProps {
+  serverId: string;
   channelId: string;
+  threadId?: string;
 }
 
-export function MessageInput({ channelId }: MessageInputProps) {
+const DURATION_MINUTES: Record<string, number> = {
+  m: 1,
+  min: 1,
+  mins: 1,
+  h: 60,
+  hr: 60,
+  hrs: 60,
+  d: 24 * 60,
+  day: 24 * 60,
+  days: 24 * 60,
+};
+
+export function MessageInput({ serverId, channelId, threadId }: MessageInputProps) {
   const formRef = useRef<HTMLFormElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  async function handleSlashCommand(content: string): Promise<boolean> {
+    const trimmed = content.trim();
+    if (!trimmed.startsWith("/")) return false;
+    const parts = trimmed.slice(1).trim().split(/\s+/);
+    const cmd = (parts[0] ?? "").toLowerCase();
+    if (!cmd) return false;
+
+    const resolveUser = async (arg: string): Promise<string | null> => {
+      const username = arg.startsWith("@") ? arg.slice(1) : arg;
+      const r = await getServerMemberIdByUsername(serverId, username);
+      if ("error" in r) {
+        setError(r.error);
+        return null;
+      }
+      return r.userId;
+    };
+
+    const parseDuration = (arg: string): number | null => {
+      const match = arg.match(/^(\d+)\s*(m|min|mins|h|hr|hrs|d|day|days)?$/i);
+      if (!match) return null;
+      const n = parseInt(match[1], 10);
+      const unit = (match[2] ?? "m").toLowerCase();
+      const mult = DURATION_MINUTES[unit] ?? 1;
+      return n * mult;
+    };
+
+    if (cmd === "timeout" && parts.length >= 3) {
+      const userId = await resolveUser(parts[1]);
+      if (!userId) return true;
+      const duration = parseDuration(parts[2]);
+      if (duration == null || duration < 1) {
+        setError("Usage: /timeout @user 5m|1h|1d");
+        return true;
+      }
+      const r = await timeoutMember(serverId, userId, duration);
+      if ("error" in r) setError(r.error);
+      else {
+        setError(null);
+        queryClient.invalidateQueries({ queryKey: ["messages", channelId] });
+      }
+      return true;
+    }
+    if (cmd === "kick" && parts.length >= 2) {
+      const userId = await resolveUser(parts[1]);
+      if (!userId) return true;
+      const reason = parts.slice(2).join(" ") || null;
+      const r = await kickMember(serverId, userId, reason);
+      if ("error" in r) setError(r.error);
+      else {
+        setError(null);
+        queryClient.invalidateQueries({ queryKey: ["messages", channelId] });
+      }
+      return true;
+    }
+    if (cmd === "ban" && parts.length >= 2) {
+      const userId = await resolveUser(parts[1]);
+      if (!userId) return true;
+      const reason = parts.slice(2).join(" ") || null;
+      const r = await banMember(serverId, userId, reason);
+      if ("error" in r) setError(r.error);
+      else {
+        setError(null);
+        queryClient.invalidateQueries({ queryKey: ["messages", channelId] });
+      }
+      return true;
+    }
+    if (cmd === "warn" && parts.length >= 2) {
+      const userId = await resolveUser(parts[1]);
+      if (!userId) return true;
+      const reason = parts.slice(2).join(" ") || null;
+      const r = await warnMember(serverId, userId, reason);
+      if ("error" in r) setError(r.error);
+      else {
+        setError(null);
+        queryClient.invalidateQueries({ queryKey: ["messages", channelId] });
+      }
+      return true;
+    }
+    if (cmd === "delete" && parts.length >= 1) {
+      const arg = parts[1];
+      if (arg?.toLowerCase() === "last" && parts[2]) {
+        const n = parseInt(parts[2], 10);
+        if (Number.isNaN(n) || n < 1 || n > 100) {
+          setError("Usage: /delete last <1-100>");
+          return true;
+        }
+        const idsR = await getLastMessageIdsInChannel(channelId, serverId, n);
+        if ("error" in idsR) {
+          setError(idsR.error);
+          return true;
+        }
+        const r = await deleteMessagesBulk(idsR.messageIds, serverId);
+        if ("error" in r) setError(r.error);
+        else {
+          setError(null);
+          queryClient.invalidateQueries({ queryKey: ["messages", channelId] });
+        }
+        return true;
+      }
+      if (arg && /^[0-9a-f-]{36}$/i.test(arg)) {
+        const r = await deleteMessage(arg, serverId);
+        if ("error" in r) setError(r.error);
+        else {
+          setError(null);
+          queryClient.invalidateQueries({ queryKey: ["messages", channelId] });
+        }
+        return true;
+      }
+      setError("Usage: /delete <message_id> or /delete last <n>");
+      return true;
+    }
+    setError(`Unknown command: /${cmd}. Try /timeout, /kick, /ban, /warn, /delete`);
+    return true;
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -32,10 +171,25 @@ export function MessageInput({ channelId }: MessageInputProps) {
 
     const content = (form.elements.namedItem("content") as HTMLInputElement)?.value ?? "";
 
-    const body: { channel_id: string; content: string; files?: Array<{ name: string; size: number; type: string }> } = {
+    if (content.trim().startsWith("/")) {
+      const handled = await handleSlashCommand(content);
+      if (handled) {
+        form.reset();
+        setSelectedFiles([]);
+      }
+      return;
+    }
+
+    const body: {
+      channel_id: string;
+      content: string;
+      thread_id?: string;
+      files?: Array<{ name: string; size: number; type: string }>;
+    } = {
       channel_id: channelId,
       content,
     };
+    if (threadId) body.thread_id = threadId;
     if (selectedFiles.length > 0) {
       body.files = selectedFiles.map((f) => ({ name: f.name, size: f.size, type: f.type }));
     }
@@ -93,6 +247,9 @@ export function MessageInput({ channelId }: MessageInputProps) {
       }
 
       queryClient.invalidateQueries({ queryKey: ["messages", channelId] });
+      if (threadId) {
+        queryClient.invalidateQueries({ queryKey: ["thread", threadId] });
+      }
       setSelectedFiles([]);
       form.reset();
     } catch (err) {

@@ -20,11 +20,13 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const channelId = body.channel_id as string;
     const content = (body.content as string) ?? "";
+    const threadId = body.thread_id as string | undefined;
     const files = (body.files as Array<{ name: string; size: number; type: string }>) ?? [];
 
     const result = await prepareMessageWithUploads({
       channelId,
       content,
+      threadId: threadId && typeof threadId === "string" ? threadId : undefined,
       files: files.length > 0 ? files : undefined,
     });
 

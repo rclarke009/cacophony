@@ -26,7 +26,7 @@ export default async function JoinPage({ params }: PageProps) {
   const admin = createAdminClient();
   const { data: invite, error: inviteError } = await admin
     .from("invites")
-    .select("id, code, max_uses, uses, expires_at, server_id")
+    .select("id, code, max_uses, uses, expires_at, server_id, created_by_user_id")
     .eq("code", code.trim())
     .single();
 
@@ -58,6 +58,14 @@ export default async function JoinPage({ params }: PageProps) {
       server_id: invite.server_id,
       user_id: user.id,
       role: "member",
+    });
+    const inviterId = invite.created_by_user_id ?? user.id;
+    await admin.from("member_invitations").insert({
+      server_id: invite.server_id,
+      user_id: user.id,
+      invited_by_user_id: inviterId,
+      source: "link",
+      invite_id: invite.id,
     });
     await admin
       .from("invites")

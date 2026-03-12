@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { CreateChannelDialog } from "@/components/chat/create-channel-dialog";
 import { InvitePeopleDialog } from "@/components/chat/invite-people-dialog";
 import { ThemeSelector } from "@/components/theme-selector";
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, Users, Settings } from "lucide-react";
 
 export default async function ServerLayout({
   children,
@@ -50,6 +50,22 @@ export default async function ServerLayout({
           <h2 className="font-semibold text-sidebar-foreground">{server.name}</h2>
         </div>
         <nav className="flex-1 overflow-y-auto p-2">
+          <Link
+            href={`/chat/${serverId}/members`}
+            className="mb-1 flex items-center gap-2 rounded-md px-3 py-2 text-sm text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          >
+            <Users className="h-4 w-4 shrink-0" />
+            Members
+          </Link>
+          {isAdmin && (
+            <Link
+              href={`/chat/${serverId}/settings`}
+              className="mb-1 flex items-center gap-2 rounded-md px-3 py-2 text-sm text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            >
+              <Settings className="h-4 w-4 shrink-0" />
+              Settings
+            </Link>
+          )}
           {channels.map((channel) => (
             <Link
               key={channel.id}

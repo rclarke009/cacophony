@@ -1,8 +1,20 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ContextMenu, type ContextMenuItem } from "@/components/ui/context-menu";
+import {
+  deleteMessage,
+  createReport,
+  timeoutMember,
+  kickMember,
+  banMember,
+  warnMember,
+  setVoiceMute,
+  createThread,
+} from "@/app/actions/moderation";
+
 interface Attachment {
   id: string;
   file_path: string;
@@ -20,9 +32,12 @@ interface Message {
 }
 
 interface MessageListProps {
+  serverId: string;
   channelId: string;
   initialMessages: Message[];
   channelName: string;
+  currentUserId: string;
+  isModerator: boolean;
 }
 
 const SIGNED_URL_EXPIRY = 3600; // 1 hour
@@ -43,13 +58,52 @@ async function getSignedUrls(
   return results;
 }
 
+type MenuTarget =
+  | { type: "message"; messageId: string; userId: string }
+  | { type: "user"; userId: string; username: string | null };
+
 export function MessageList({
+  serverId,
   channelId,
   initialMessages,
   channelName,
+  currentUserId,
+  isModerator,
 }: MessageListProps) {
   const queryClient = useQueryClient();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    target: MenuTarget;
+  } | null>(null);
+
+  const closeMenu = useCallback(() => setContextMenu(null), []);
+
+  const handleMessageContextMenu = useCallback(
+    (e: React.MouseEvent, msg: Message) => {
+      e.preventDefault();
+      setContextMenu({
+        x: e.clientX,
+        y: e.clientY,
+        target: { type: "message", messageId: msg.id, userId: msg.user_id },
+      });
+    },
+    []
+  );
+
+  const handleUserContextMenu = useCallback(
+    (e: React.MouseEvent, userId: string, username: string | null) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setContextMenu({
+        x: e.clientX,
+        y: e.clientY,
+        target: { type: "user", userId, username },
+      });
+    },
+    []
+  );
 
   const { data: messages = initialMessages } = useQuery({
     queryKey: ["messages", channelId],
@@ -130,6 +184,85 @@ export function MessageList({
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);
 
+  const messageMenuItems = (msgId: string, msgUserId: string): ContextMenuItem[] => {
+    const canDelete = currentUserId === msgUserId || isModerator;
+    const items: ContextMenuItem[] = [];
+    if (canDelete) {
+      items.push({
+        label: "Delete message",
+        variant: "destructive",
+        onClick: async () => {
+          const r = await deleteMessage(msgId, serverId);
+          if ("error" in r) {
+            console.log("MYDEBUG →", r.error);
+          } else {
+            queryClient.invalidateQueries({ queryKey: ["messages", channelId] });
+          }
+        },
+      });
+    }
+    items.push({
+      label: "Start thread",
+      onClick: async () => {
+        const title = window.prompt("Thread title (optional)") ?? "Thread";
+        const r = await createThread(channelId, serverId, msgId, title);
+        if ("error" in r) {
+          console.log("MYDEBUG →", r.error);
+        } else {
+          window.location.href = `/chat/${serverId}/${channelId}/thread/${r.threadId}`;
+        }
+      },
+    });
+    items.push({
+      label: "Report message",
+      onClick: async () => {
+        await createReport(serverId, {
+          reportedMessageId: msgId,
+          reportedUserId: msgUserId,
+          reason: null,
+        });
+      },
+    });
+    return items;
+  };
+
+  const userMenuItems = (targetUserId: string): ContextMenuItem[] => {
+    if (!isModerator || targetUserId === currentUserId) return [];
+    const items: ContextMenuItem[] = [
+      {
+        label: "Timeout 5m",
+        onClick: () => timeoutMember(serverId, targetUserId, 5),
+      },
+      {
+        label: "Timeout 1h",
+        onClick: () => timeoutMember(serverId, targetUserId, 60),
+      },
+      {
+        label: "Kick",
+        onClick: () => kickMember(serverId, targetUserId, null),
+      },
+      {
+        label: "Ban",
+        variant: "destructive",
+        onClick: () => banMember(serverId, targetUserId, null),
+      },
+      {
+        label: "Warn",
+        onClick: () => warnMember(serverId, targetUserId, null),
+      },
+      {
+        label: "Mute in voice",
+        onClick: () =>
+          setVoiceMute(
+            serverId,
+            targetUserId,
+            new Date(Date.now() + 24 * 60 * 60 * 1000)
+          ),
+      },
+    ];
+    return items;
+  };
+
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-card">
       <div className="channel-header flex h-12 items-center border-b border-border px-4">
@@ -146,9 +279,18 @@ export function MessageList({
             messages.map((msg) => {
               const isAction = msg.content.startsWith("*");
               return (
-                <div key={msg.id} className="flex flex-col gap-0.5">
+                <div
+                  key={msg.id}
+                  className="flex flex-col gap-0.5"
+                  onContextMenu={(e) => handleMessageContextMenu(e, msg)}
+                >
                   <div className="flex items-baseline gap-2">
-                    <span className="font-medium text-foreground">
+                    <span
+                      className="font-medium text-foreground cursor-context-menu"
+                      onContextMenu={(e) =>
+                        handleUserContextMenu(e, msg.user_id, msg.username ?? null)
+                      }
+                    >
                       {msg.username ?? "Anonymous"}
                     </span>
                     <span
@@ -199,6 +341,26 @@ export function MessageList({
           <div ref={scrollRef} />
         </div>
       </div>
+
+      {contextMenu &&
+        (() => {
+          const items =
+            contextMenu.target.type === "message"
+              ? messageMenuItems(
+                  contextMenu.target.messageId,
+                  contextMenu.target.userId
+                )
+              : userMenuItems(contextMenu.target.userId);
+          if (items.length === 0) return null;
+          return (
+            <ContextMenu
+              x={contextMenu.x}
+              y={contextMenu.y}
+              items={items}
+              onClose={closeMenu}
+            />
+          );
+        })()}
     </div>
   );
 }

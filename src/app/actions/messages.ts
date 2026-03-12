@@ -14,6 +14,7 @@ import { revalidatePath } from "next/cache";
 export type PrepareMessageInput = {
   channelId: string;
   content: string;
+  threadId?: string;
   files?: Array<{ name: string; size: number; type: string }>;
 };
 
@@ -30,7 +31,7 @@ export async function prepareMessageWithUploads(
   input: PrepareMessageInput
 ): Promise<PrepareMessageResult> {
   try {
-    const { channelId, content, files = [] } = input;
+    const { channelId, content, threadId, files = [] } = input;
     const trimmedContent = content?.trim() ?? "";
 
     if (!channelId) {
@@ -64,7 +65,7 @@ export async function prepareMessageWithUploads(
     // Security: explicit channel membership check before creating message or signed URLs
     const { data: channel, error: channelError } = await supabase
       .from("channels")
-      .select("server_id")
+      .select("server_id, slowmode_seconds")
       .eq("id", channelId)
       .single();
 
@@ -74,13 +75,65 @@ export async function prepareMessageWithUploads(
 
     const { data: membership } = await supabase
       .from("server_members")
-      .select("id")
+      .select("id, timeout_until")
       .eq("server_id", channel.server_id)
       .eq("user_id", user.id)
       .maybeSingle();
 
     if (!membership) {
       return { error: "You must be a member of this channel to send messages" };
+    }
+    if (membership.timeout_until && new Date(membership.timeout_until) > new Date()) {
+      return { error: "You are timed out and cannot send messages" };
+    }
+
+    // Slowmode
+    const slowmodeSec = channel.slowmode_seconds ?? 0;
+    if (slowmodeSec > 0) {
+      const { data: lastMsg } = await supabase
+        .from("messages")
+        .select("created_at")
+        .eq("channel_id", channelId)
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+      if (lastMsg?.created_at) {
+        const elapsed = (Date.now() - new Date(lastMsg.created_at).getTime()) / 1000;
+        if (elapsed < slowmodeSec) {
+          return {
+            error: `Please wait ${Math.ceil(slowmodeSec - elapsed)}s before sending again (slowmode).`,
+          };
+        }
+      }
+    }
+
+    // AutoMod: apply server rules
+    const { data: automodRules } = await supabase
+      .from("automod_rules")
+      .select("name, type, config, action")
+      .eq("server_id", channel.server_id);
+
+    for (const rule of automodRules ?? []) {
+      let matched = false;
+      if (rule.type === "keywords") {
+        const keywords = (rule.config as { keywords?: string[] })?.keywords ?? [];
+        const lower = trimmedContent.toLowerCase();
+        if (keywords.some((k) => lower.includes(k.toLowerCase()))) {
+          matched = true;
+        }
+      }
+      if (rule.type === "profanity") {
+        const bad = /\b(shit|damn|hell)\b/i;
+        if (bad.test(trimmedContent)) matched = true;
+      }
+      if (matched) {
+        if (rule.action === "block") {
+          return {
+            error: `Message blocked by AutoMod rule: ${rule.name ?? "Rule"}`,
+          };
+        }
+      }
     }
 
     // Validate file metadata (server-validated contentType used for upload)
@@ -109,13 +162,37 @@ export async function prepareMessageWithUploads(
       }
     }
 
+    if (threadId && isValidUUID(threadId)) {
+      const { data: thread } = await supabase
+        .from("threads")
+        .select("id, channel_id, locked_at")
+        .eq("id", threadId)
+        .single();
+      if (!thread || thread.channel_id !== channelId) {
+        return { error: "Thread not found" };
+      }
+      if (thread.locked_at) {
+        return { error: "This thread is locked" };
+      }
+    }
+
+    const insertPayload: {
+      channel_id: string;
+      user_id: string;
+      content: string;
+      thread_id?: string;
+    } = {
+      channel_id: channelId,
+      user_id: user.id,
+      content: trimmedContent || "",
+    };
+    if (threadId && isValidUUID(threadId)) {
+      insertPayload.thread_id = threadId;
+    }
+
     const { data: message, error: insertError } = await supabase
       .from("messages")
-      .insert({
-        channel_id: channelId,
-        user_id: user.id,
-        content: trimmedContent || "",
-      })
+      .insert(insertPayload)
       .select("id")
       .single();
 

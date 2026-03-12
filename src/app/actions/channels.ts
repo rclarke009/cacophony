@@ -58,3 +58,33 @@ export async function createChannel(
   revalidatePath(`/chat/${serverId}`);
   redirect(`/chat/${serverId}/${channel.id}`);
 }
+
+export async function updateChannelSlowmode(
+  serverId: string,
+  channelId: string,
+  slowmodeSeconds: number
+): Promise<{ success: true } | { error: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+  const { data: membership } = await supabase
+    .from("server_members")
+    .select("role")
+    .eq("server_id", serverId)
+    .eq("user_id", user.id)
+    .single();
+  if (membership?.role !== "owner" && membership?.role !== "admin") {
+    return { error: "Only server owners and admins can change channel settings" };
+  }
+  const sec = Math.max(0, Math.min(21600, slowmodeSeconds));
+  const { error } = await supabase
+    .from("channels")
+    .update({ slowmode_seconds: sec })
+    .eq("id", channelId)
+    .eq("server_id", serverId);
+  if (error) return { error: error.message };
+  revalidatePath(`/chat/${serverId}`);
+  return { success: true };
+}

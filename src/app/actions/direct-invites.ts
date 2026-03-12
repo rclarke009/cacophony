@@ -35,7 +35,7 @@ export async function sendDirectInvite(
 
   const { data: membership } = await supabase
     .from("server_members")
-    .select("role")
+    .select("role, can_invite")
     .eq("server_id", serverId)
     .eq("user_id", user.id)
     .single();
@@ -43,6 +43,9 @@ export async function sendDirectInvite(
   const isAdmin = membership?.role === "owner" || membership?.role === "admin";
   if (!isAdmin) {
     return { error: "Only server owners and admins can invite people" };
+  }
+  if (membership?.can_invite === false) {
+    return { error: "Your invite permission has been revoked" };
   }
 
   const { data: existingMember } = await supabase
@@ -101,7 +104,7 @@ export async function acceptDirectInvite(inviteId: string) {
 
   const { data: invite, error: inviteError } = await supabase
     .from("direct_invites")
-    .select("id, server_id, status")
+    .select("id, server_id, status, invited_by_user_id")
     .eq("id", inviteId)
     .eq("invited_user_id", user.id)
     .single();
@@ -117,6 +120,15 @@ export async function acceptDirectInvite(inviteId: string) {
     user_id: user.id,
     role: "member",
   });
+
+  if (!insertError) {
+    await admin.from("member_invitations").insert({
+      server_id: invite.server_id,
+      user_id: user.id,
+      invited_by_user_id: invite.invited_by_user_id,
+      source: "direct",
+    });
+  }
 
   if (insertError) {
     if (insertError.code === "23505") {

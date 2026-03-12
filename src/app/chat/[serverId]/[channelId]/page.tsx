@@ -53,6 +53,13 @@ export default async function ChannelPage({ params }: PageProps) {
     (profiles ?? []).map((p) => [p.id, p.username])
   );
 
+  const { data: myMembership } = await supabase
+    .from("server_members")
+    .select("role")
+    .eq("server_id", serverId)
+    .eq("user_id", user.id)
+    .single();
+
   const initialMessages = await Promise.all(
     (messages ?? []).map(async (m) => {
       const attachments = (m.attachments ?? []) as Attachment[];
@@ -77,11 +84,14 @@ export default async function ChannelPage({ params }: PageProps) {
   return (
     <>
       <MessageList
+        serverId={serverId}
         channelId={channelId}
         initialMessages={initialMessages}
         channelName={channel.name}
+        currentUserId={user.id}
+        isModerator={myMembership?.role === "owner" || myMembership?.role === "admin"}
       />
-      <MessageInput channelId={channelId} />
+      <MessageInput serverId={serverId} channelId={channelId} />
     </>
   );
 }

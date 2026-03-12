@@ -21,7 +21,7 @@ export async function createInvite(serverId: string, maxUses = DEFAULT_MAX_USES)
 
   const { data: membership } = await supabase
     .from("server_members")
-    .select("role")
+    .select("role, can_invite")
     .eq("server_id", serverId)
     .eq("user_id", user.id)
     .single();
@@ -29,6 +29,9 @@ export async function createInvite(serverId: string, maxUses = DEFAULT_MAX_USES)
   const isAdmin = membership?.role === "owner" || membership?.role === "admin";
   if (!isAdmin) {
     return { error: "Only server owners and admins can create invites" };
+  }
+  if (membership?.can_invite === false) {
+    return { error: "Your invite permission has been revoked" };
   }
 
   const code = nanoid(8);
