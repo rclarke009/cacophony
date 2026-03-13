@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { CreateChannelDialog } from "@/components/chat/create-channel-dialog";
 import { InvitePeopleDialog } from "@/components/chat/invite-people-dialog";
 import { ThemeSelector } from "@/components/theme-selector";
-import { MessageSquare, Users, Settings } from "lucide-react";
+import { MessageSquare, Users, Settings, GitBranch } from "lucide-react";
 
 export default async function ServerLayout({
   children,
@@ -58,13 +58,22 @@ export default async function ServerLayout({
             Members
           </Link>
           {isAdmin && (
-            <Link
-              href={`/chat/${serverId}/settings`}
-              className="mb-1 flex items-center gap-2 rounded-md px-3 py-2 text-sm text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-            >
-              <Settings className="h-4 w-4 shrink-0" />
-              Settings
-            </Link>
+            <>
+              <Link
+                href={`/chat/${serverId}/invite-tree`}
+                className="mb-1 flex items-center gap-2 rounded-md px-3 py-2 text-sm text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              >
+                <GitBranch className="h-4 w-4 shrink-0" />
+                Invite tree
+              </Link>
+              <Link
+                href={`/chat/${serverId}/settings`}
+                className="mb-1 flex items-center gap-2 rounded-md px-3 py-2 text-sm text-sidebar-foreground/80 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              >
+                <Settings className="h-4 w-4 shrink-0" />
+                Settings
+              </Link>
+            </>
           )}
           {channels.map((channel) => (
             <Link
@@ -76,12 +85,10 @@ export default async function ServerLayout({
               {channel.name}
             </Link>
           ))}
-          {isAdmin && (
-            <div className="space-y-1 px-2 pt-2">
-              <InvitePeopleDialog serverId={serverId} />
-              <CreateChannelDialog serverId={serverId} />
-            </div>
-          )}
+          <div className="space-y-1 px-2 pt-2">
+            <CreateChannelDialog serverId={serverId} />
+            {isAdmin && <InvitePeopleDialog serverId={serverId} />}
+          </div>
         </nav>
         <div className="border-t border-sidebar-border p-2">
           <ThemeSelector />

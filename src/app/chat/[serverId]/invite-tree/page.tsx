@@ -25,6 +25,8 @@ export default async function InviteTreePage({ params }: PageProps) {
     .single();
 
   if (!membership) notFound();
+  const isAdmin = membership.role === "owner" || membership.role === "admin";
+  if (!isAdmin) notFound();
 
   const { tree, error } = await getInviteTree(serverId);
   if (error) notFound();

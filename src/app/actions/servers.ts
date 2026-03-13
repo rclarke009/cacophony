@@ -106,7 +106,12 @@ export async function createServer(prevState: { error?: string } | null, formDat
 
   const { data: channel, error: channelError } = await admin
     .from("channels")
-    .insert({ server_id: server.id, name: "general", type: "text" })
+    .insert({
+      server_id: server.id,
+      name: "general",
+      type: "text",
+      created_by_user_id: user.id,
+    })
     .select("id")
     .single();
 

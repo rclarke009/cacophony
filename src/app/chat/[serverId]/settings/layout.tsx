@@ -1,7 +1,7 @@
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { Shield, Bot, ScrollText, MessageSquare, Flag } from "lucide-react";
+import { Shield, Bot, ScrollText, MessageSquare, Flag, UserX } from "lucide-react";
 
 export default async function ServerSettingsLayout({
   children,
@@ -65,6 +65,13 @@ export default async function ServerSettingsLayout({
             >
               <Flag className="h-4 w-4" />
               Reports
+            </Link>
+            <Link
+              href={`${base}/ban-requests`}
+              className="flex items-center gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              <UserX className="h-4 w-4" />
+              Ban requests
             </Link>
             <Link
               href={`${base}/channels`}

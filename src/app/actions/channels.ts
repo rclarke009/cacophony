@@ -44,6 +44,7 @@ export async function createChannel(
       server_id: serverId,
       name,
       type: type === "voice" ? "voice" : "text",
+      created_by_user_id: user.id,
     })
     .select("id")
     .single();

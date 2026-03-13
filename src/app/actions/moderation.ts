@@ -7,7 +7,8 @@ import { revalidatePath } from "next/cache";
 
 const BOT_INVITER_THRESHOLD = 3;
 
-export async function canModerate(
+/** True if user is server admin (owner or admin role). Used for admin-only actions. */
+export async function isServerAdmin(
   serverId: string,
   userId: string
 ): Promise<boolean> {
@@ -20,6 +21,51 @@ export async function canModerate(
     .eq("user_id", userId)
     .single();
   return data?.role === "owner" || data?.role === "admin";
+}
+
+/** True if user created at least one channel in this server (channel moderator). */
+export async function isChannelModerator(
+  serverId: string,
+  userId: string
+): Promise<boolean> {
+  if (!isValidUUID(serverId) || !isValidUUID(userId)) return false;
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("channels")
+    .select("id")
+    .eq("server_id", serverId)
+    .eq("created_by_user_id", userId)
+    .limit(1)
+    .maybeSingle();
+  return data != null;
+}
+
+/** True if moderatorId invited targetUserId to this server. */
+export async function moderatorInvitedUser(
+  serverId: string,
+  moderatorId: string,
+  targetUserId: string
+): Promise<boolean> {
+  if (!isValidUUID(serverId) || !isValidUUID(moderatorId) || !isValidUUID(targetUserId))
+    return false;
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("member_invitations")
+    .select("id")
+    .eq("server_id", serverId)
+    .eq("user_id", targetUserId)
+    .eq("invited_by_user_id", moderatorId)
+    .limit(1)
+    .maybeSingle();
+  return data != null;
+}
+
+/** True if user is server admin (owner or admin). Kept for backward compatibility. */
+export async function canModerate(
+  serverId: string,
+  userId: string
+): Promise<boolean> {
+  return isServerAdmin(serverId, userId);
 }
 
 /** Resolve @username to user id in server (for slash commands). */
@@ -203,7 +249,13 @@ export async function kickMember(
   if (!isValidUUID(serverId) || !isValidUUID(targetUserId)) {
     return { error: "Invalid server or user" };
   }
-  if (!(await canModerate(serverId, user.id))) {
+
+  const adminCanKick = await isServerAdmin(serverId, user.id);
+  const moderatorCanKick =
+    !adminCanKick &&
+    (await isChannelModerator(serverId, user.id)) &&
+    (await moderatorInvitedUser(serverId, user.id, targetUserId));
+  if (!adminCanKick && !moderatorCanKick) {
     return { error: "You do not have permission to kick members" };
   }
 
@@ -216,7 +268,7 @@ export async function kickMember(
 
   if (!target) return { error: "User is not a member of this server" };
   if (target.role === "owner") return { error: "Cannot kick the server owner" };
-  if (target.role === "admin" && user.id !== targetUserId) {
+  if (adminCanKick && target.role === "admin" && user.id !== targetUserId) {
     const { data: me } = await admin
       .from("server_members")
       .select("role")
@@ -224,6 +276,9 @@ export async function kickMember(
       .eq("user_id", user.id)
       .single();
     if (me?.role !== "owner") return { error: "Only the owner can kick admins" };
+  }
+  if (moderatorCanKick && (target.role === "admin" || target.role === "owner")) {
+    return { error: "Channel moderators cannot kick admins or the owner" };
   }
 
   await admin.from("member_removals").insert({
@@ -339,6 +394,144 @@ export async function unbanMember(
   await writeAuditLog(serverId, user.id, "member_unban", "user", targetUserId, null);
   revalidatePath("/chat");
   revalidatePath(`/chat/${serverId}`);
+  return { success: true };
+}
+
+export type CreateBanRequestResult = { success: true } | { error: string };
+
+export async function createBanRequest(
+  serverId: string,
+  targetUserId: string,
+  reason: string | null
+): Promise<CreateBanRequestResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+  if (!isValidUUID(serverId) || !isValidUUID(targetUserId)) {
+    return { error: "Invalid server or user" };
+  }
+  if (targetUserId === user.id) return { error: "Cannot request ban on yourself" };
+  const mod = await isChannelModerator(serverId, user.id);
+  if (!mod) return { error: "Only channel moderators can request a ban" };
+  if (await isServerAdmin(serverId, user.id)) {
+    return { error: "Admins can ban directly; use Ban instead" };
+  }
+  const { error } = await supabase.from("ban_requests").insert({
+    server_id: serverId,
+    requested_by_user_id: user.id,
+    target_user_id: targetUserId,
+    reason: reason ?? undefined,
+  });
+  if (error) return { error: error.message };
+  revalidatePath(`/chat/${serverId}`);
+  return { success: true };
+}
+
+export type BanRequestRow = {
+  id: string;
+  server_id: string;
+  requested_by_user_id: string;
+  target_user_id: string;
+  reason: string | null;
+  status: string;
+  created_at: string;
+  resolved_at: string | null;
+  resolved_by_user_id: string | null;
+  requester_username: string | null;
+  target_username: string | null;
+};
+
+export async function getBanRequestsForServer(
+  serverId: string
+): Promise<{ requests: BanRequestRow[]; error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { requests: [], error: "Not authenticated" };
+  if (!isValidUUID(serverId)) return { requests: [], error: "Invalid server" };
+  if (!(await isServerAdmin(serverId, user.id))) {
+    return { requests: [], error: "Only admins can view ban requests" };
+  }
+  const { data: rows, error } = await supabase
+    .from("ban_requests")
+    .select("id, server_id, requested_by_user_id, target_user_id, reason, status, created_at, resolved_at, resolved_by_user_id")
+    .eq("server_id", serverId)
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (error) return { requests: [], error: error.message };
+  const userIds = [
+    ...new Set(
+      (rows ?? []).flatMap((r) => [r.requested_by_user_id, r.target_user_id])
+    ),
+  ];
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id, username")
+    .in("id", userIds);
+  const profileMap = new Map(
+    (profiles ?? []).map((p) => [p.id, p.username])
+  );
+  const requests: BanRequestRow[] = (rows ?? []).map((r) => ({
+    ...r,
+    requester_username: profileMap.get(r.requested_by_user_id) ?? null,
+    target_username: profileMap.get(r.target_user_id) ?? null,
+  }));
+  return { requests };
+}
+
+export type ResolveBanRequestResult = { success: true } | { error: string };
+
+export async function resolveBanRequest(
+  serverId: string,
+  requestId: string,
+  action: "approve" | "dismiss"
+): Promise<ResolveBanRequestResult> {
+  const supabase = await createClient();
+  const admin = createAdminClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not authenticated" };
+  if (!isValidUUID(serverId) || !isValidUUID(requestId)) {
+    return { error: "Invalid server or request" };
+  }
+  if (!(await isServerAdmin(serverId, user.id))) {
+    return { error: "Only admins can resolve ban requests" };
+  }
+  const { data: req } = await supabase
+    .from("ban_requests")
+    .select("id, target_user_id, reason, status")
+    .eq("id", requestId)
+    .eq("server_id", serverId)
+    .single();
+  if (!req || req.status !== "pending") {
+    return { error: "Request not found or already resolved" };
+  }
+  if (action === "approve") {
+    const banResult = await banMember(serverId, req.target_user_id, req.reason);
+    if ("error" in banResult) {
+      if (process.env.NODE_ENV === "development") {
+        console.log("MYDEBUG →", banResult.error);
+      }
+      return { error: banResult.error };
+    }
+  }
+  const newStatus = action === "approve" ? "approved" : "dismissed";
+  const { error: updateError } = await supabase
+    .from("ban_requests")
+    .update({
+      status: newStatus,
+      resolved_at: new Date().toISOString(),
+      resolved_by_user_id: user.id,
+    })
+    .eq("id", requestId)
+    .eq("server_id", serverId);
+  if (updateError) return { error: updateError.message };
+  revalidatePath(`/chat/${serverId}`);
+  revalidatePath(`/chat/${serverId}/settings/ban-requests`);
   return { success: true };
 }
 

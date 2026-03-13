@@ -8,26 +8,31 @@ import {
   kickMember,
   banMember,
   restoreInvitePermission,
+  createBanRequest,
 } from "@/app/actions/moderation";
 
 interface MembersListProps {
   serverId: string;
   members: MemberRow[];
   currentUserId: string;
-  isModerator: boolean;
+  isAdmin: boolean;
+  isChannelModerator: boolean;
 }
 
 export function MembersList({
   serverId,
   members,
   currentUserId,
-  isModerator,
+  isAdmin,
+  isChannelModerator,
 }: MembersListProps) {
   const [error, setError] = useState<string | null>(null);
   const [actionTarget, setActionTarget] = useState<string | null>(null);
+  const showActions = isAdmin || isChannelModerator;
+  const isOwner = members.find((m) => m.user_id === currentUserId)?.role === "owner";
 
   async function handleTimeout(userId: string, minutes: number) {
-    if (!isModerator || userId === currentUserId) return;
+    if (!isAdmin || userId === currentUserId) return;
     setActionTarget(userId);
     setError(null);
     const r = await timeoutMember(serverId, userId, minutes);
@@ -37,7 +42,7 @@ export function MembersList({
   }
 
   async function handleKick(userId: string) {
-    if (!isModerator || userId === currentUserId) return;
+    if (userId === currentUserId) return;
     setActionTarget(userId);
     setError(null);
     const r = await kickMember(serverId, userId, null);
@@ -47,7 +52,7 @@ export function MembersList({
   }
 
   async function handleBan(userId: string) {
-    if (!isModerator || userId === currentUserId) return;
+    if (!isAdmin || userId === currentUserId) return;
     setActionTarget(userId);
     setError(null);
     const r = await banMember(serverId, userId, null);
@@ -57,10 +62,20 @@ export function MembersList({
   }
 
   async function handleRestoreInvite(userId: string) {
-    if (!isModerator) return;
+    if (!isAdmin) return;
     setActionTarget(userId);
     setError(null);
     const r = await restoreInvitePermission(serverId, userId);
+    setActionTarget(null);
+    if ("error" in r) setError(r.error);
+    else window.location.reload();
+  }
+
+  async function handleRequestBan(userId: string) {
+    if (!isChannelModerator || userId === currentUserId) return;
+    setActionTarget(userId);
+    setError(null);
+    const r = await createBanRequest(serverId, userId, null);
     setActionTarget(null);
     if ("error" in r) setError(r.error);
     else window.location.reload();
@@ -82,7 +97,7 @@ export function MembersList({
               <th className="px-3 py-2 font-medium">Joined</th>
               <th className="px-3 py-2 font-medium">Invited by</th>
               <th className="px-3 py-2 font-medium">Bot invitees</th>
-              {isModerator && (
+              {showActions && (
                 <th className="px-3 py-2 font-medium">Actions</th>
               )}
             </tr>
@@ -90,8 +105,24 @@ export function MembersList({
           <tbody>
             {members.map((m) => {
               const isSelf = m.user_id === currentUserId;
-              const canAct = isModerator && !isSelf;
+              const invitedByCurrentUser = m.invited_by_user_id === currentUserId;
               const loading = actionTarget === m.user_id;
+              const canAdminAct =
+                isAdmin &&
+                !isSelf &&
+                m.role !== "owner" &&
+                (m.role !== "admin" || isOwner);
+              const canModeratorKick =
+                isChannelModerator &&
+                !isAdmin &&
+                !isSelf &&
+                invitedByCurrentUser &&
+                m.role !== "owner" &&
+                m.role !== "admin";
+              const canRequestBan =
+                isChannelModerator && !isAdmin && !isSelf;
+              const showKick =
+                (isAdmin && canAdminAct) || canModeratorKick;
               return (
                 <tr key={m.user_id} className="border-b border-border">
                   <td className="px-3 py-2">
@@ -119,26 +150,48 @@ export function MembersList({
                       "—"
                     )}
                   </td>
-                  {isModerator && (
+                  {showActions && (
                     <td className="px-3 py-2">
-                      {canAct && (
-                        <div className="flex flex-wrap gap-1">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={loading}
-                            onClick={() => handleTimeout(m.user_id, 5)}
-                          >
-                            5m
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={loading}
-                            onClick={() => handleTimeout(m.user_id, 60)}
-                          >
-                            1h
-                          </Button>
+                      <div className="flex flex-wrap gap-1">
+                        {isAdmin && canAdminAct && (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={loading}
+                              onClick={() => handleTimeout(m.user_id, 5)}
+                            >
+                              5m
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={loading}
+                              onClick={() => handleTimeout(m.user_id, 60)}
+                            >
+                              1h
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              disabled={loading}
+                              onClick={() => handleBan(m.user_id)}
+                            >
+                              Ban
+                            </Button>
+                            {m.can_invite === false && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                disabled={loading}
+                                onClick={() => handleRestoreInvite(m.user_id)}
+                              >
+                                Restore invite
+                              </Button>
+                            )}
+                          </>
+                        )}
+                        {showKick && (
                           <Button
                             variant="outline"
                             size="sm"
@@ -147,26 +200,18 @@ export function MembersList({
                           >
                             Kick
                           </Button>
+                        )}
+                        {canRequestBan && (
                           <Button
-                            variant="destructive"
+                            variant="outline"
                             size="sm"
                             disabled={loading}
-                            onClick={() => handleBan(m.user_id)}
+                            onClick={() => handleRequestBan(m.user_id)}
                           >
-                            Ban
+                            Request ban
                           </Button>
-                          {m.can_invite === false && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              disabled={loading}
-                              onClick={() => handleRestoreInvite(m.user_id)}
-                            >
-                              Restore invite
-                            </Button>
-                          )}
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </td>
                   )}
                 </tr>
