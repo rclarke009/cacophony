@@ -2,6 +2,7 @@ import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { MessageList } from "@/components/chat/message-list";
 import { MessageInput } from "@/components/chat/message-input";
+import { MESSAGES_PAGE_SIZE } from "@/lib/constants";
 
 interface Attachment {
   id: string;
@@ -37,11 +38,13 @@ export default async function ChannelPage({ params }: PageProps) {
     notFound();
   }
 
-  const { data: messages } = await supabase
+  const { data: messagesDesc } = await supabase
     .from("messages")
     .select("id, content, created_at, user_id, attachments(id, file_path, file_type)")
     .eq("channel_id", channelId)
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: false })
+    .limit(MESSAGES_PAGE_SIZE);
+  const messages = (messagesDesc ?? []).slice().reverse();
 
   const userIds = [...new Set((messages ?? []).map((m) => m.user_id))];
   const { data: profiles } = await supabase

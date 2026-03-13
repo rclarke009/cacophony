@@ -15,6 +15,9 @@ export const MAX_TOTAL_ATTACHMENTS = 4 * 1024 * 1024; // 4 MB
 /** Max number of images per message. */
 export const MAX_IMAGES_PER_MESSAGE = 5;
 
+/** Number of messages to load per page (initial load and "load older"). */
+export const MESSAGES_PAGE_SIZE = 50;
+
 export const ALLOWED_MIME_TYPES = [
   "image/jpeg",
   "image/png",

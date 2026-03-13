@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
+import { MESSAGES_PAGE_SIZE } from "@/lib/constants";
 import { ContextMenu, type ContextMenuItem } from "@/components/ui/context-menu";
 import {
   deleteMessage,
@@ -42,6 +43,7 @@ interface MessageListProps {
 
 const SIGNED_URL_EXPIRY = 3600; // 1 hour
 
+/** Batch signed URLs for a set of attachments (one storage round-trip per attachment, but only for current page). */
 async function getSignedUrls(
   supabase: ReturnType<typeof createClient>,
   attachments: Attachment[]
@@ -105,40 +107,47 @@ export function MessageList({
     []
   );
 
-  const { data: messages = initialMessages } = useQuery({
+  type Cursor = { created_at: string; id: string };
+
+  const {
+    data,
+    fetchPreviousPage,
+    hasPreviousPage,
+    isFetchingPreviousPage,
+  } = useInfiniteQuery({
     queryKey: ["messages", channelId],
-    queryFn: async () => {
+    initialPageParam: undefined as Cursor | undefined,
+    queryFn: async ({ pageParam }) => {
       const supabase = createClient();
-      const { data: msgs, error } = await supabase
+      let q = supabase
         .from("messages")
         .select("id, content, created_at, user_id, attachments(id, file_path, file_type)")
         .eq("channel_id", channelId)
-        .order("created_at", { ascending: true });
-
+        .order("created_at", { ascending: false })
+        .limit(MESSAGES_PAGE_SIZE);
+      if (pageParam) {
+        q = q.lt("created_at", pageParam.created_at);
+      }
+      const { data: msgs, error } = await q;
       if (error) throw error;
+      const page = msgs ?? [];
 
-      const userIds = [...new Set((msgs ?? []).map((m) => m.user_id))];
+      const userIds = [...new Set(page.map((m) => m.user_id))];
       const { data: profiles } = await supabase
         .from("profiles")
         .select("id, username")
         .in("id", userIds);
-
       const profileMap = new Map(
         (profiles ?? []).map((p) => [p.id, p.username])
       );
 
       const messagesWithUrls = await Promise.all(
-        (msgs ?? []).map(async (m) => {
+        page.map(async (m) => {
           const attachments = (m.attachments ?? []) as Attachment[];
           const attachmentsWithUrls =
             attachments.length > 0
               ? await getSignedUrls(supabase, attachments)
               : [];
-          console.log("MYDEBUG →", {
-            msgId: m.id,
-            attachments,
-            attachmentsWithUrls,
-          });
           return {
             ...m,
             username: profileMap.get(m.user_id) ?? null,
@@ -146,11 +155,25 @@ export function MessageList({
           };
         })
       );
-
       return messagesWithUrls as Message[];
     },
-    initialData: initialMessages,
+    getPreviousPageParam: (_firstPage, allPages) => {
+      const lastPage = allPages[allPages.length - 1];
+      if (!lastPage || lastPage.length < MESSAGES_PAGE_SIZE) return undefined;
+      const oldest = lastPage[lastPage.length - 1];
+      return { created_at: oldest.created_at, id: oldest.id };
+    },
+    initialData: () => ({
+      pages: [initialMessages.slice().reverse()],
+      pageParams: [undefined],
+    }),
   });
+
+  const messages =
+    data?.pages.slice().reverse().flatMap((p) => [...p].reverse()) ??
+    initialMessages;
+
+  const scrollToBottomRef = useRef(false);
 
   useEffect(() => {
     const supabase = createClient();
@@ -164,8 +187,50 @@ export function MessageList({
           table: "messages",
           filter: `channel_id=eq.${channelId}`,
         },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ["messages", channelId] });
+        async (payload: { new: { id: string } }) => {
+          const newId = payload.new?.id;
+          if (!newId) return;
+          try {
+            const { data: row, error } = await supabase
+              .from("messages")
+              .select("id, content, created_at, user_id, attachments(id, file_path, file_type)")
+              .eq("id", newId)
+              .single();
+            if (error || !row) return;
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("username")
+              .eq("id", row.user_id)
+              .single();
+            const attachments = (row.attachments ?? []) as Attachment[];
+            const attachmentsWithUrls =
+              attachments.length > 0
+                ? await getSignedUrls(supabase, attachments)
+                : [];
+            const newMessage: Message = {
+              id: row.id,
+              content: row.content,
+              created_at: row.created_at,
+              user_id: row.user_id,
+              username: profile?.username ?? null,
+              attachments: attachmentsWithUrls,
+            };
+            queryClient.setQueryData(
+              ["messages", channelId] as const,
+              (old: { pages: Message[][]; pageParams: unknown[] } | undefined) => {
+                if (!old?.pages.length) return old;
+                const [first, ...rest] = old.pages;
+                return {
+                  ...old,
+                  pages: [[newMessage, ...first], ...rest],
+                  pageParams: old.pageParams,
+                };
+              }
+            );
+            scrollToBottomRef.current = true;
+          } catch (e) {
+            console.log("MYDEBUG →", "Realtime append failed", e);
+          }
         }
       )
       .subscribe((status, err) => {
@@ -181,7 +246,10 @@ export function MessageList({
   }, [channelId, queryClient]);
 
   useEffect(() => {
-    scrollRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (scrollToBottomRef.current) {
+      scrollToBottomRef.current = false;
+      scrollRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages.length]);
 
   const messageMenuItems = (msgId: string, msgUserId: string): ContextMenuItem[] => {
@@ -271,6 +339,18 @@ export function MessageList({
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="flex flex-col gap-4 p-4">
+          {hasPreviousPage && (
+            <div className="flex justify-center py-2">
+              <button
+                type="button"
+                onClick={() => fetchPreviousPage()}
+                disabled={isFetchingPreviousPage}
+                className="rounded border border-border bg-muted px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted/80 disabled:opacity-50"
+              >
+                {isFetchingPreviousPage ? "Loading…" : "Load older messages"}
+              </button>
+            </div>
+          )}
           {messages.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">
               No messages yet. Say something!
