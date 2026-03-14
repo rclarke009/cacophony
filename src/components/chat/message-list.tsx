@@ -163,6 +163,7 @@ export function MessageList({
       const oldest = lastPage[lastPage.length - 1];
       return { created_at: oldest.created_at, id: oldest.id };
     },
+    getNextPageParam: () => undefined,
     initialData: () => ({
       pages: [initialMessages.slice().reverse()],
       pageParams: [undefined],
