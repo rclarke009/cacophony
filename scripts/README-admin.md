@@ -1,6 +1,11 @@
 # Platform admin scripts
 
-These scripts use the **Supabase service role** to list servers, members, invite trees, and to kick/ban users. They are for the main admin who controls the DB.
+These scripts use the **Supabase service role** to list servers, members, invite trees, and to kick/ban users. They are for the **main admin** who controls the DB.
+
+## How to get access (main admin)
+
+- **In the app:** Set `PLATFORM_ADMIN_USER_IDS=your-uuid` (comma-separated if multiple) in `.env.local` or your deployment env. Your UUID is in Supabase Dashboard → Authentication → Users. Then visit **`/platform-admin`** in the app (see the main project **README.md** → “Platform admin”).
+- **These scripts:** They don’t check `PLATFORM_ADMIN_USER_IDS`; they use the service role key. Keep the key and these scripts restricted to people who are allowed to act as main admin. For boot scripts, set `BOOT_ACTOR_USER_ID` to your user UUID so the audit log records who took the action.
 
 **Required env:** `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`.  
 For boot scripts you also need `BOOT_ACTOR_USER_ID` (your user UUID) for audit_log.

@@ -141,6 +141,35 @@ supabase/
 
 ---
 
+## Platform admin (main admin)
+
+If you are the main admin (you control the DB), you can use a dedicated area to view invite trees and boot abusive users.
+
+### How to access
+
+1. **Get your user UUID:** Supabase Dashboard → **Authentication** → **Users** → copy your user’s ID.
+2. **Set env:** In `.env.local` (or your deployment env), add:
+   ```bash
+   PLATFORM_ADMIN_USER_IDS=your-uuid-here
+   ```
+   Use a comma-separated list for multiple admins (e.g. `uuid1,uuid2`).
+3. **Restart the app** if it’s already running.
+4. **Open the admin area:** While logged in as that user, go to **`/platform-admin`** (e.g. `https://yourapp.com/platform-admin` or `http://localhost:3000/platform-admin`).  
+   If your ID isn’t in `PLATFORM_ADMIN_USER_IDS`, you’ll be redirected to `/chat`.
+
+### What you can do there
+
+- **Servers** — Click any server to see its **invite tree** (who invited whom). Helps trace abuse or see who brought in a user.
+- **User lookup** — Search by username or email. See which servers they’re in, their role, and who invited them. Then **Kick** or **Ban** from one server, or **Ban from all servers** for serious abuse.
+
+Kick = remove from server (they can rejoin with a new invite). Ban = remove and block from that server. All actions are recorded in each server’s audit log.
+
+### Scripts (optional)
+
+For one-off or automated tasks (list servers, list members, invite tree, kick/ban from the command line), see **`scripts/README-admin.md`**. Those scripts use the Supabase service role and require `SUPABASE_SERVICE_ROLE_KEY` and, for boot actions, `BOOT_ACTOR_USER_ID`.
+
+---
+
 ## Realtime (Live Messages)
 
 To enable live message updates when others send messages:

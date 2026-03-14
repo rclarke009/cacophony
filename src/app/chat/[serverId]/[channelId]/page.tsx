@@ -1,8 +1,10 @@
 import { redirect, notFound } from "next/navigation";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { MessageList } from "@/components/chat/message-list";
 import { MessageInput } from "@/components/chat/message-input";
 import { MESSAGES_PAGE_SIZE } from "@/lib/constants";
+import { logger } from "@/lib/logger";
 
 interface Attachment {
   id: string;
@@ -18,7 +20,10 @@ interface PageProps {
 const SIGNED_URL_EXPIRY = 3600; // 1 hour
 
 export default async function ChannelPage({ params }: PageProps) {
+  const start = Date.now();
   const { serverId, channelId } = await params;
+  const headersList = await headers();
+  const requestId = headersList.get("x-request-id") ?? undefined;
   const supabase = await createClient();
   const {
     data: { user },
@@ -83,6 +88,13 @@ export default async function ChannelPage({ params }: PageProps) {
       };
     })
   );
+
+  logger.info("channel_page", {
+    request_id: requestId,
+    channel_id: channelId,
+    duration_ms: Date.now() - start,
+    message_count: initialMessages.length,
+  });
 
   return (
     <>

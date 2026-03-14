@@ -8,6 +8,7 @@ import {
 } from "@/lib/constants";
 import { revalidatePath } from "next/cache";
 import { createHash } from "crypto";
+import { logger } from "@/lib/logger";
 
 /** 3 MB - stay under Vercel 4.5 MB request body limit */
 const MAX_UPLOAD_FILE_SIZE = 3 * 1024 * 1024;
@@ -32,6 +33,8 @@ function getContentAddressedPath(buffer: Buffer, contentType: string): string {
  * One file per request; Vercel 4.5 MB body limit applies.
  */
 export async function POST(request: NextRequest) {
+  const start = Date.now();
+  const requestId = request.headers.get("x-request-id") ?? undefined;
   try {
     const formData = await request.formData();
     const channelId = formData.get("channel_id") as string | null;
@@ -39,6 +42,12 @@ export async function POST(request: NextRequest) {
     const file = formData.get("file") as File | null;
 
     if (!channelId || !messageId || !file) {
+      logger.info("upload_attachment", {
+        request_id: requestId,
+        duration_ms: Date.now() - start,
+        status: 400,
+        error: "missing_params",
+      });
       return NextResponse.json(
         { error: "channel_id, message_id, and file are required" },
         { status: 400 }
@@ -46,6 +55,12 @@ export async function POST(request: NextRequest) {
     }
 
     if (!isValidUUID(channelId) || !isValidUUID(messageId)) {
+      logger.info("upload_attachment", {
+        request_id: requestId,
+        duration_ms: Date.now() - start,
+        status: 400,
+        error: "invalid_uuid",
+      });
       return NextResponse.json({ error: "Invalid channel or message" }, { status: 400 });
     }
 
@@ -55,6 +70,12 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (!user) {
+      logger.info("upload_attachment", {
+        request_id: requestId,
+        duration_ms: Date.now() - start,
+        status: 401,
+        error: "not_authenticated",
+      });
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
@@ -66,6 +87,12 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (channelError || !channel) {
+      logger.info("upload_attachment", {
+        request_id: requestId,
+        duration_ms: Date.now() - start,
+        status: 404,
+        error: "channel_not_found",
+      });
       return NextResponse.json({ error: "Channel not found" }, { status: 404 });
     }
 
@@ -77,6 +104,12 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
 
     if (!membership) {
+      logger.info("upload_attachment", {
+        request_id: requestId,
+        duration_ms: Date.now() - start,
+        status: 403,
+        error: "not_member",
+      });
       return NextResponse.json(
         { error: "You must be a member of this channel to upload" },
         { status: 403 }
@@ -92,12 +125,24 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (messageError || !message) {
+      logger.info("upload_attachment", {
+        request_id: requestId,
+        duration_ms: Date.now() - start,
+        status: 404,
+        error: "message_not_found",
+      });
       return NextResponse.json({ error: "Message not found" }, { status: 404 });
     }
 
     // Validate file
     const allowed = ALLOWED_MIME_TYPES as readonly string[];
     if (!allowed.includes(file.type)) {
+      logger.info("upload_attachment", {
+        request_id: requestId,
+        duration_ms: Date.now() - start,
+        status: 400,
+        error: "invalid_file_type",
+      });
       return NextResponse.json(
         { error: "Invalid file type. Allowed: JPEG, PNG, GIF, WebP" },
         { status: 400 }
@@ -105,6 +150,12 @@ export async function POST(request: NextRequest) {
     }
 
     if (file.size > MAX_UPLOAD_FILE_SIZE) {
+      logger.info("upload_attachment", {
+        request_id: requestId,
+        duration_ms: Date.now() - start,
+        status: 400,
+        error: "file_too_large",
+      });
       return NextResponse.json(
         { error: "Each image must be under 3 MB" },
         { status: 400 }
@@ -119,6 +170,12 @@ export async function POST(request: NextRequest) {
       .eq("message_id", messageId);
 
     if ((count ?? 0) >= MAX_IMAGES_PER_MESSAGE) {
+      logger.info("upload_attachment", {
+        request_id: requestId,
+        duration_ms: Date.now() - start,
+        status: 400,
+        error: "max_images_per_message",
+      });
       return NextResponse.json(
         { error: `Maximum ${MAX_IMAGES_PER_MESSAGE} images per message` },
         { status: 400 }
@@ -134,6 +191,7 @@ export async function POST(request: NextRequest) {
       .from("attachments")
       .download(path);
 
+    const uploadStart = Date.now();
     if (existsError) {
       const { error: uploadError } = await admin.storage
         .from("attachments")
@@ -144,13 +202,22 @@ export async function POST(request: NextRequest) {
 
       if (uploadError) {
         console.log("MYDEBUG →", uploadError);
+        logger.error("upload_attachment", {
+          request_id: requestId,
+          duration_ms: Date.now() - start,
+          upload_ms: Date.now() - uploadStart,
+          status: 500,
+          error: uploadError.message,
+        });
         return NextResponse.json(
           { error: uploadError.message ?? "Failed to upload image" },
           { status: 500 }
         );
       }
     }
+    const uploadMs = Date.now() - uploadStart;
 
+    const attachStart = Date.now();
     const { error: attachError } = await admin.from("attachments").insert({
       message_id: messageId,
       file_path: path,
@@ -159,16 +226,40 @@ export async function POST(request: NextRequest) {
 
     if (attachError) {
       console.log("MYDEBUG →", attachError);
+      logger.error("upload_attachment", {
+        request_id: requestId,
+        duration_ms: Date.now() - start,
+        upload_ms: uploadMs,
+        attach_ms: Date.now() - attachStart,
+        status: 500,
+        error: attachError.message,
+      });
       return NextResponse.json(
         { error: attachError.message ?? "Failed to save attachment" },
         { status: 500 }
       );
     }
+    const attachMs = Date.now() - attachStart;
 
+    logger.info("upload_attachment", {
+      request_id: requestId,
+      duration_ms: Date.now() - start,
+      upload_ms: uploadMs,
+      attach_ms: attachMs,
+      status: 200,
+      channel_id: channelId,
+      message_id: messageId,
+    });
     revalidatePath(`/chat`);
     return NextResponse.json({ success: true, messageId });
   } catch (err) {
     console.log("MYDEBUG →", err);
+    logger.error("upload_attachment", {
+      request_id: requestId,
+      duration_ms: Date.now() - start,
+      status: 500,
+      error: err instanceof Error ? err.message : String(err),
+    });
     return NextResponse.json(
       {
         error:
