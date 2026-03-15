@@ -51,9 +51,17 @@ async function getSignedUrls(
   const imageAttachments = attachments.filter((a) => a.file_type === "image");
   const results = await Promise.all(
     imageAttachments.map(async (a) => {
-      const { data } = await supabase.storage
+      const { data, error } = await supabase.storage
         .from("attachments")
         .createSignedUrl(a.file_path, SIGNED_URL_EXPIRY);
+      if (error) {
+        console.log("MYDEBUG →", {
+          createSignedUrlError: error.message,
+          code: error.name,
+          file_path: a.file_path,
+          attachment_id: a.id,
+        });
+      }
       return { ...a, signed_url: data?.signedUrl ?? null };
     })
   );

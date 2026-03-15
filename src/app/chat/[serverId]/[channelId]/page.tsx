@@ -75,9 +75,17 @@ export default async function ChannelPage({ params }: PageProps) {
         attachments
           .filter((a) => a.file_type === "image")
           .map(async (a) => {
-            const { data } = await supabase.storage
+            const { data, error } = await supabase.storage
               .from("attachments")
               .createSignedUrl(a.file_path, SIGNED_URL_EXPIRY);
+            if (error) {
+              logger.warn("createSignedUrl failed", {
+                request_id: requestId,
+                file_path: a.file_path,
+                attachment_id: a.id,
+                error: error.message,
+              });
+            }
             return { ...a, signed_url: data?.signedUrl ?? null };
           })
       );
