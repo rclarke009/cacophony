@@ -94,6 +94,17 @@ async function uploadOneTinyImage() {
     upsert: true,
   });
   if (error) throw error;
+  // Verify: createSignedUrl with service role should succeed if storage is readable
+  const { data: signed, error: signErr } = await supabase.storage
+    .from("attachments")
+    .createSignedUrl(path, 60);
+  if (signErr) {
+    console.warn("MYDEBUG → Seed upload OK but createSignedUrl failed (frontend may not show images):", signErr.message);
+  } else if (!signed?.signedUrl) {
+    console.warn("MYDEBUG → Seed upload OK but createSignedUrl returned no URL");
+  } else {
+    console.log("MYDEBUG → Seed attachment path ready:", path);
+  }
   return path;
 }
 

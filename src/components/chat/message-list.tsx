@@ -61,6 +61,12 @@ async function getSignedUrls(
           file_path: a.file_path,
           attachment_id: a.id,
         });
+      } else if (!data?.signedUrl) {
+        console.log("MYDEBUG →", {
+          createSignedUrlNoUrl: true,
+          file_path: a.file_path,
+          attachment_id: a.id,
+        });
       }
       return { ...a, signed_url: data?.signedUrl ?? null };
     })
@@ -433,6 +439,14 @@ export function MessageList({
                               className="max-h-64 max-w-full rounded border border-border object-contain"
                             />
                           </a>
+                        ) : att.file_type === "image" ? (
+                          <span
+                            key={att.id}
+                            className="inline-flex max-h-64 max-w-full items-center justify-center rounded border border-border bg-muted px-3 py-2 text-xs text-muted-foreground"
+                            title={att.file_path}
+                          >
+                            Image unavailable
+                          </span>
                         ) : null
                       )}
                     </div>
