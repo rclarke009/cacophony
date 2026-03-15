@@ -51,6 +51,17 @@ export default async function ChannelPage({ params }: PageProps) {
     .limit(MESSAGES_PAGE_SIZE);
   const messages = (messagesDesc ?? []).slice().reverse();
 
+  const rawAttachmentCount = (messages ?? []).reduce(
+    (n, m) => n + ((m.attachments as Attachment[] | undefined)?.length ?? 0),
+    0
+  );
+  logger.info("channel_page_messages", {
+    request_id: requestId,
+    channel_id: channelId,
+    message_count: messages.length,
+    raw_attachment_count: rawAttachmentCount,
+  });
+
   const userIds = [...new Set((messages ?? []).map((m) => m.user_id))];
   const { data: profiles } = await supabase
     .from("profiles")
@@ -68,6 +79,7 @@ export default async function ChannelPage({ params }: PageProps) {
     .eq("user_id", user.id)
     .single();
 
+  let firstSignedUrlLogDone = false;
   const initialMessages = await Promise.all(
     (messages ?? []).map(async (m) => {
       const attachments = (m.attachments ?? []) as Attachment[];
@@ -78,6 +90,17 @@ export default async function ChannelPage({ params }: PageProps) {
             const { data, error } = await supabase.storage
               .from("attachments")
               .createSignedUrl(a.file_path, SIGNED_URL_EXPIRY);
+            if (!firstSignedUrlLogDone) {
+              firstSignedUrlLogDone = true;
+              logger.info("createSignedUrl_sample", {
+                request_id: requestId,
+                file_path: a.file_path,
+                attachment_id: a.id,
+                has_error: !!error,
+                error_message: error?.message ?? null,
+                has_signed_url: !!(data?.signedUrl),
+              });
+            }
             if (error) {
               logger.warn("createSignedUrl failed", {
                 request_id: requestId,
@@ -96,6 +119,21 @@ export default async function ChannelPage({ params }: PageProps) {
       };
     })
   );
+
+  const totalAttachments = initialMessages.reduce(
+    (n, m) => n + (m.attachments?.length ?? 0),
+    0
+  );
+  const withNullUrl = initialMessages.flatMap((m) =>
+    (m.attachments ?? []).filter((a) => !a.signed_url)
+  );
+  logger.info("channel_page_attachments", {
+    request_id: requestId,
+    channel_id: channelId,
+    total_attachments: totalAttachments,
+    attachments_with_null_url: withNullUrl.length,
+    sample_path: withNullUrl[0]?.file_path ?? null,
+  });
 
   logger.info("channel_page", {
     request_id: requestId,
