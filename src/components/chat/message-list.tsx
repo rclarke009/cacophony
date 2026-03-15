@@ -74,6 +74,8 @@ export function MessageList({
 }: MessageListProps) {
   const queryClient = useQueryClient();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [bottomInView, setBottomInView] = useState(false);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -81,6 +83,21 @@ export function MessageList({
   } | null>(null);
 
   const closeMenu = useCallback(() => setContextMenu(null), []);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    const root = scrollContainerRef.current;
+    if (!el || !root) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const e = entries[0];
+        if (e) setBottomInView(e.isIntersecting);
+      },
+      { root, rootMargin: "100px", threshold: 0 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   const handleMessageContextMenu = useCallback(
     (e: React.MouseEvent, msg: Message) => {
@@ -170,9 +187,15 @@ export function MessageList({
     }),
   });
 
-  const messages =
+  const raw =
     data?.pages.slice().reverse().flatMap((p) => [...p].reverse()) ??
     initialMessages;
+  const seen = new Set<string>();
+  const messages = raw.filter((m) => {
+    if (seen.has(m.id)) return false;
+    seen.add(m.id);
+    return true;
+  });
 
   const scrollToBottomRef = useRef(false);
 
@@ -338,20 +361,11 @@ export function MessageList({
         <h1 className="font-semibold text-foreground"># {channelName}</h1>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div
+        ref={scrollContainerRef}
+        className="min-h-0 flex-1 overflow-y-auto"
+      >
         <div className="flex flex-col gap-4 p-4">
-          {hasPreviousPage && (
-            <div className="flex justify-center py-2">
-              <button
-                type="button"
-                onClick={() => fetchPreviousPage()}
-                disabled={isFetchingPreviousPage}
-                className="rounded border border-border bg-muted px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted/80 disabled:opacity-50"
-              >
-                {isFetchingPreviousPage ? "Loading…" : "Load older messages"}
-              </button>
-            </div>
-          )}
           {messages.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">
               No messages yet. Say something!
@@ -418,6 +432,18 @@ export function MessageList({
                 </div>
               );
             })
+          )}
+          {hasPreviousPage && bottomInView && (
+            <div className="flex justify-center py-2">
+              <button
+                type="button"
+                onClick={() => fetchPreviousPage()}
+                disabled={isFetchingPreviousPage}
+                className="rounded border border-border bg-muted px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted/80 disabled:opacity-50"
+              >
+                {isFetchingPreviousPage ? "Loading…" : "Load older messages"}
+              </button>
+            </div>
           )}
           <div ref={scrollRef} />
         </div>
